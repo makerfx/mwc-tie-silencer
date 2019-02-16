@@ -3,6 +3,8 @@
 // reference: Using USB MIDI - https://www.pjrc.com/teensy/td_midi.html
 // reference: 
 // IMPORTANT NOTE: 8.3 FILENAMES FOR WAV AUDIO FILES!
+// IMPORTANT NOTE: WAV 44100 STEREO 16BIT
+
 
 /*
  * Todo:
@@ -127,7 +129,7 @@ unsigned long lastPlayStart = 0;
 
 
 
-#define ACTION_MAP_SIZE 8
+#define ACTION_MAP_SIZE 8l
 
 /*
  * The ActionMap allows us to have multiple types of input events
@@ -151,7 +153,7 @@ void setup() {
   Serial.begin(9600);
   AudioMemory(128);
   sgtl5000_1.enable();
-  sgtl5000_1.volume(0.9);
+  sgtl5000_1.volume(0.4);
   SPI.setMOSI(SDCARD_MOSI_PIN);
   SPI.setSCK(SDCARD_SCK_PIN);
   if (!(SD.begin(SDCARD_CS_PIN))) {
@@ -266,28 +268,28 @@ void actionTorpedo() {
   //torpedo sound
   //torpedo LED animation
 
-  actionPlayWAV("SDTEST1.WAV");
+  actionPlayWAV("TORPEDO1.WAV");
 }
 
 void actionLaser() {
   Serial.println("Fire the LAZORS!");
   //laser sound
   //laser LED animation
-  actionPlayWAV("SDTEST2.WAV");
+  actionPlayWAV("LASER1.WAV");
 }
 
 void actionKylo() {
   Serial.println("Kylo was here!");
   //random Kylo speech
   //cockpit lighting animation?
-  actionPlayWAV("SDTEST3.WAV");
+  actionPlayWAV("KYLO1.WAV");
 }
 
 void actionEngine() {
   Serial.println("There is no sound in space, but let's make some anyway!");
   //play spaceship sound
   //engine lighting animation
-  actionPlayWAV("SDTEST4.WAV");
+  actionPlayWAV("ENGINE1.WAV");
 }
 
 void actionBackgroundMusicToggle() {
