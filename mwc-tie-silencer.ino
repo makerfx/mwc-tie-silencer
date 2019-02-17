@@ -93,7 +93,7 @@ CRGB cockpitLEDS[COCKPIT_NUM_LEDS];
 #include <Metro.h> //Include Metro library 
 
 Metro bgmMetro = Metro(500);
-bool bgmStatus = 1;           //set to 1 have BGM at boot
+bool bgmStatus = 1;           //0 = BGM off; 1 = BGM on
 
 //for USB host functions
 #include "USBHost_t36.h"
@@ -217,9 +217,17 @@ void loop() {
   myusb.Task();
 
    if (bgmMetro.check() == 1) { // check if the metro has passed its interval .
-      if (bgmStatus && !channels[CHANNEL_MUSIC]->isPlaying()) {
-        channels[CHANNEL_MUSIC]->play("BACKGND1.WAV");  
+      //check on background music
+      if (bgmStatus && !channels[CHANNEL_MUSIC]->isPlaying()) { 
+        playFile(CHANNEL_MUSIC, "BACKGND1.WAV"); 
+        //todo, switch this to random background music
       }
+      //check on engine
+      if (!channels[CHANNEL_ENGINE]->isPlaying()) {
+        //We want ENGINE1.WAV (baseline engine) playing whenever ENGINE2.WAV (thrust) is NOT playing
+        playFile(CHANNEL_ENGINE, "ENGINE1.WAV");
+      }
+      
    } //end bgmMetro check
 
    
@@ -311,7 +319,7 @@ void actionEngine() {
 #endif
   //play spaceship sound
   //engine lighting animation
-  actionPlayWAV(CHANNEL_ENGINE, "ENGINE1.WAV");
+  actionPlayWAV(CHANNEL_ENGINE, "ENGINE2.WAV");
 }
 
 /*
