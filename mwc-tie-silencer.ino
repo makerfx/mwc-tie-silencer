@@ -53,13 +53,16 @@ AudioControlSGTL5000     sgtl5000_1;     //xy=106,55
 SD Card tests showed that loading three simultaneous wav files was safe, 4 was not
 */
 
+#define NUM_CHANNELS      4
+
 #define CHANNEL_MUSIC     0
 #define CHANNEL_ENGINE    1
 #define CHANNEL_SPEECH    2
 #define CHANNEL_WEAPON    2
 
 //I use this syntax so that I can leave the declarations above which come from the Audio Design tool
-AudioPlaySdWav *channels[] = { &playSdWav0, &playSdWav1, &playSdWav2 };
+AudioPlaySdWav *channels[NUM_CHANNELS] = { &playSdWav0, &playSdWav1, &playSdWav2 };
+String playQueue[NUM_CHANNELS];
 
 #define NUM_BGM_WAVS        1  //plays random file
 #define NUM_LASER_WAVS      7  //plays random file
@@ -93,6 +96,8 @@ CRGB cockpitLEDS[COCKPIT_NUM_LEDS];
 #include <Metro.h> //Include Metro library 
 
 Metro bgmMetro = Metro(500);
+Metro playQueueMetro = Metro(50);
+
 bool bgmStatus = 1;           //0 = BGM off; 1 = BGM on
 
 //for USB host functions
@@ -216,20 +221,29 @@ void loop() {
   updateButtons();
   myusb.Task();
 
-   if (bgmMetro.check() == 1) { // check if the metro has passed its interval .
+   if (bgmMetro.check() == 1) { // check if the metro has passed its interval 
       //check on background music
       if (bgmStatus && !channels[CHANNEL_MUSIC]->isPlaying()) { 
-        playFile(CHANNEL_MUSIC, "BACKGND1.WAV"); 
+        playWAV(CHANNEL_MUSIC, "BACKGND1.WAV"); 
         //todo, switch this to random background music
       }
       //check on engine
       if (!channels[CHANNEL_ENGINE]->isPlaying()) {
         //We want ENGINE1.WAV (baseline engine) playing whenever ENGINE2.WAV (thrust) is NOT playing
-        playFile(CHANNEL_ENGINE, "ENGINE1.WAV");
+        playWAV(CHANNEL_ENGINE, "ENGINE1.WAV");
       }
       
    } //end bgmMetro check
 
+  if (playQueueMetro.check() == 1) { // check if the metro has passed its interval
+    for (int q = 0; q < NUM_CHANNELS; q++) {
+      String fn = playQueue[q];
+      if (fn.length() >0) {
+        playQueue[q] = "";
+        playWAV(q,fn); 
+      }
+    }
+  }
    
 }
 
@@ -286,7 +300,7 @@ void actionTorpedo() {
   //torpedo sound
   String fn = "TORPEDO";
   fn = fn + random (1, NUM_TORPEDO_WAVS + 1) + ".wav";
-  playFile( CHANNEL_WEAPON, fn);
+  queueWAV( CHANNEL_WEAPON, fn);
 
   //torpedo LED animation
 
@@ -300,7 +314,7 @@ void actionLaser() {
   //laser sound
   //laser LED animation
  
-  channels[CHANNEL_WEAPON]->play("LASER1.WAV");
+  queueWAV(CHANNEL_WEAPON, "LASER1.WAV");
   
 }
 
@@ -310,7 +324,7 @@ void actionKylo() {
 #endif
   //random Kylo speech
   //cockpit lighting animation?
-  actionPlayWAV(CHANNEL_SPEECH, "KYLO1.WAV");
+  queueWAV(CHANNEL_SPEECH, "KYLO1.WAV");
 }
 
 void actionEngine() {
@@ -319,7 +333,7 @@ void actionEngine() {
 #endif
   //play spaceship sound
   //engine lighting animation
-  actionPlayWAV(CHANNEL_ENGINE, "ENGINE2.WAV");
+  queueWAV(CHANNEL_ENGINE, "ENGINE2.WAV");
 }
 
 /*
@@ -343,20 +357,27 @@ void actionBGMToggle() {
   
 }
 
-void actionPlayWAV (int channel, char* filename) {
- //note: this function does not have the rate protection code to prevent button spamming locks
-#if DEBUG_AUDIO
- Serial.print("actionPlayWAV - ");
- Serial.println(filename);
-#endif
- 
- playFile(channel, filename);
- 
-}
+/*
+ * Audio Playback 
+ * queueWAV() - this is needed because we can't start audio files
+ * during the USB interrupt that generates key messages
+ * We add the file to a channel queue (currently only one deep)
+ * and there is a queue metro that will check for it and play it
+ * 
+ */
 
-//needed for string constants in the processAction function
-void actionPlayWAV (char const* filename) {
-  actionPlayWAV((char*) filename); //cast to char* to call the other function
+void queueWAV (int channel, String fn) {
+  if (channel < NUM_CHANNELS) {
+    playQueue[channel] = fn;
+#if DEBUG_AUDIO
+    Serial.print ("queueWAV(");
+    Serial.print (channel);
+    Serial.print (",");
+    Serial.print (fn);
+    Serial.println (");");   
+#endif 
+  
+  }
 }
 
 
@@ -364,13 +385,13 @@ void actionPlayWAV (char const* filename) {
  * Audio Playback
  * playFile - this plays a specific wav file
  * there is a "debounce" on this to prevent locking behavior
- * 
+ * DO NOT CALL THIS FROM WITHIN A USB EVENT HANDLER, USE queueWAV instead!
  */
 
- bool playFile (int channel, String fn) {
+void playWAV (int channel, String fn) {
 
 #if DEBUG_AUDIO
-  Serial.print ("playFile(");
+  Serial.print ("playWAV(");
   Serial.print (channel);
   Serial.print (",");
   Serial.print (fn);
@@ -379,19 +400,5 @@ void actionPlayWAV (char const* filename) {
 
   channels[channel]->play(fn.c_str());
   delay(10);
-  return 1; //todo this should check for status
-/*
-  //IF NOT PLAYING OR ENOUGH TIME HAS ELAPSED
-  if (( playSdWav1.isPlaying() == false) || (curMillis > testVal) ) {
-        lastPlayStart = millis();
-        playSdWav1.play(fn.c_str());
-        delay(10); // wait for library to parse WAV info
-          //NOT SURE THIS DELAY WORKS SINCE THREADED CALLS...
-        return true;
-  } //end if
-  else {
-    //Serial.println("Ignoring Action due to Play Delay.");
-    return false;
-  }
-  */
-} //end playFile
+
+} //end playWAV
