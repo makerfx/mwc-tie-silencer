@@ -4,7 +4,7 @@
 // IMPORTANT NOTE: 8.3 FILENAMES FOR WAV AUDIO FILES!
 // IMPORTANT NOTE: WAV 44100 STEREO 16BIT
 
-#define DEBUG_INPUT  0  //input functions will Serial.print if 1
+#define DEBUG_INPUT  1  //input functions will Serial.print if 1
 #define DEBUG_AUDIO  1  //audio functions will Serial.print if 1
 #define DEBUG_ACTION 1  //action functions will Serial.print if 1
 
@@ -50,25 +50,22 @@ AudioControlSGTL5000     sgtl5000_1;     //xy=106,55
 // GUItool: end automatically generated code
 
 /*
-playSdWav0 - Background music
-playSdWav1 - Kylo & Engine
-playSdWav2 - Laser & Torpedo
-
 SD Card tests showed that loading three simultaneous wav files was safe, 4 was not
 */
 
 #define CHANNEL_MUSIC     0
 #define CHANNEL_ENGINE    1
-#define CHANNEL_SPEECH    1
+#define CHANNEL_SPEECH    2
 #define CHANNEL_WEAPON    2
 
+//I use this syntax so that I can leave the declarations above which come from the Audio Design tool
 AudioPlaySdWav *channels[] = { &playSdWav0, &playSdWav1, &playSdWav2 };
 
-#define NUM_BGM_WAVS        1
-#define NUM_LASER_WAVS      1
-#define NUM_TORPEDO_WAVS    1
-#define NUM_ENGINE_WAVS     1
-#define NUM_SPEECH_WAVS     1
+#define NUM_BGM_WAVS        1  //plays random file
+#define NUM_LASER_WAVS      7  //plays random file
+#define NUM_TORPEDO_WAVS    4  //plays random file
+#define NUM_ENGINE_WAVS     2  //plays 0 all the time, then 1 when button pressed
+#define NUM_SPEECH_WAVS     9  //plays random
 
 
 //LED ALL THE THINGS!
@@ -93,12 +90,10 @@ CRGB cockpitLEDS[COCKPIT_NUM_LEDS];
 
 //Show & Mode Globals
 
-
-
 #include <Metro.h> //Include Metro library 
 
 Metro bgmMetro = Metro(500);
-bool bgmStatus = 0;
+bool bgmStatus = 1;           //set to 1 have BGM at boot
 
 //for USB host functions
 #include "USBHost_t36.h"
@@ -133,7 +128,7 @@ unsigned long lastPlayStart = 0;
 #define ACTION_PLAY_WAV_RND           11
 
 
-#define ACTION_MAP_SIZE 8l
+
 
 /*
  * The ActionMap allows us to have multiple types of input events
@@ -141,6 +136,9 @@ unsigned long lastPlayStart = 0;
  * key, etc. that all go to the same action
  * 
  */
+
+#define ACTION_MAP_SIZE 9
+
 int ActionMap[][3] = {
   //src, key, action
   {SOURCE_KEY, 214, ACTION_TORPEDO},            //remote right
@@ -152,9 +150,8 @@ int ActionMap[][3] = {
   {SOURCE_BUTTON, 1, ACTION_LASER},              //green button
   {SOURCE_BUTTON, 2, ACTION_KYLO},               //white button
   {SOURCE_BUTTON, 3, ACTION_ENGINE},             //red button
-  
    
-};
+}; //if you change this, don't forget to update the ACTION_MAP_SIZE
 
 
 
@@ -232,6 +229,9 @@ void updateButtons() {
     for (int btn = 0; btn< NUM_BUTTONS; btn++) {
       buttons[btn].update();
       if (buttons[btn].fallingEdge()){
+#if DEBUG_INPUT
+        Serial.print("button: "); Serial.println(btn);
+#endif
         mapAction(SOURCE_BUTTON, btn, 0);
         }
     }
@@ -302,7 +302,7 @@ void actionKylo() {
 #endif
   //random Kylo speech
   //cockpit lighting animation?
-  actionPlayWAV(CHANNEL_SPEECH, "TIMPANI1.WAV");
+  actionPlayWAV(CHANNEL_SPEECH, "KYLO1.WAV");
 }
 
 void actionEngine() {
@@ -311,7 +311,7 @@ void actionEngine() {
 #endif
   //play spaceship sound
   //engine lighting animation
-  actionPlayWAV(CHANNEL_ENGINE, "SDTEST2.WAV");
+  actionPlayWAV(CHANNEL_ENGINE, "ENGINE1.WAV");
 }
 
 /*
@@ -360,17 +360,19 @@ void actionPlayWAV (char const* filename) {
  */
 
  bool playFile (int channel, String fn) {
-  unsigned long curMillis = millis();
-  unsigned long playDelay = 200;
-  unsigned long testVal = (playDelay + lastPlayStart);
 
-  //Serial.print ("playFile-");
-  
-  //Serial.println  (millis());
-  //Serial.println (lastPlayStart);
-  //Serial.println (testVal);
+#if DEBUG_AUDIO
+  Serial.print ("playFile(");
+  Serial.print (channel);
+  Serial.print (",");
+  Serial.print (fn);
+  Serial.println (")");  
+#endif
 
-
+  channels[channel]->play(fn.c_str());
+  delay(10);
+  return 1; //todo this should check for status
+/*
   //IF NOT PLAYING OR ENOUGH TIME HAS ELAPSED
   if (( playSdWav1.isPlaying() == false) || (curMillis > testVal) ) {
         lastPlayStart = millis();
@@ -383,4 +385,5 @@ void actionPlayWAV (char const* filename) {
     //Serial.println("Ignoring Action due to Play Delay.");
     return false;
   }
+  */
 } //end playFile
