@@ -17,6 +17,8 @@
 #define NUM_BUTTONS 4
 int buttonPins[NUM_BUTTONS] = { 0, 1, 2, 3 };
 Bounce buttons[NUM_BUTTONS] = { {buttonPins[0], 250}, {buttonPins[1], 250}, {buttonPins[2], 1000},{buttonPins[3], 1000} };
+unsigned long buttonDuration[NUM_BUTTONS];
+#define BUTTON_HOLD_DURATION 2000
 
 /*
  * Audio System Includes & Globals
@@ -67,7 +69,7 @@ AudioControlSGTL5000     sgtl5000_1;     //xy=106,55
 AudioPlaySdWav *channels[NUM_CHANNELS] = { &playSdWav0, &playSdWav1, &playSdWav2 };
 String playQueue[NUM_CHANNELS];
 
-#define NUM_BGM_WAVS        1  //plays random file
+#define NUM_BGM_WAVS        6  //plays random file //set to 3 for KYLO specific
 #define NUM_LASER_WAVS      7  //plays random file
 #define NUM_TORPEDO_WAVS    4  //plays random file
 #define NUM_ENGINE_WAVS     2  //plays 0 all the time, then 1 when button pressed
@@ -98,7 +100,7 @@ CRGB cockpitLEDS[COCKPIT_NUM_LEDS];
 
 #include <Metro.h> //Include Metro library 
 
-Metro bgmMetro = Metro(500);
+Metro bgmMetro = Metro(100);
 Metro playQueueMetro = Metro(50);
 
 bool bgmStatus = 1;           //0 = BGM off; 1 = BGM on
@@ -261,11 +263,26 @@ void updateButtons() {
       buttons[btn].update();
       if (buttons[btn].fallingEdge()){
 #if DEBUG_INPUT
-        Serial.print("button: "); Serial.println(btn);
+        Serial.print("buttonDown: "); Serial.println(btn);
 #endif
-        mapAction(SOURCE_BUTTON, btn, 0);
+        buttonDuration[btn] = millis();
+        //moved the action to button release 
+        //mapAction(SOURCE_BUTTON, btn, 0);
+      }
+     
+      if (buttons[btn].risingEdge()){
+
+        unsigned long duration = millis() - buttonDuration[btn];
+#if DEBUG_INPUT
+        Serial.print("buttonUp: "); 
+        Serial.print(btn);
+        Serial.print("; Duration = "); 
+        Serial.println(duration);
+#endif
+        mapAction(SOURCE_BUTTON, btn, duration);
         }
-    }
+        
+    }//end for
 }
 
 void OnPress(int key)
@@ -294,7 +311,7 @@ void processAction (int action, int src, int key, int data) {
    
       case ACTION_TORPEDO:            actionTorpedo(); break;
       case ACTION_LASER:              actionLaser();   break;
-      case ACTION_KYLO:               actionKylo();    break;
+      case ACTION_KYLO:               actionKylo(data);    break;
       case ACTION_ENGINE:             actionEngine();  break;
       case ACTION_BGM_TOGGLE:         actionBGMToggle(); break;
    
@@ -330,16 +347,20 @@ void actionLaser() {
   
 }
 
-void actionKylo() {
+void actionKylo(int data) {
 #if DEBUG_ACTION
   Serial.println("Kylo was here!");
 #endif
   //cockpit lighting animation?
-  
-  //play random KYLO#.WAV
-  String fn = "KYLO";
-  fn = fn + random (1, NUM_KYLO_WAVS + 1) + ".wav";
-  queueWAV( CHANNEL_SPEECH, fn);
+  if (data > BUTTON_HOLD_DURATION) {
+    queueWAV( CHANNEL_SPEECH, "JARJAR.WAV");
+    }
+  else {
+    //play random KYLO#.WAV
+    String fn = "KYLO";
+    fn = fn + random (1, NUM_KYLO_WAVS + 1) + ".wav";
+    queueWAV( CHANNEL_SPEECH, fn);
+    }  
   
 }
 
