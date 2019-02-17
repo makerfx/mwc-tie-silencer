@@ -415,6 +415,8 @@ void playWAV (int channel, String fn) {
 #endif
 
   channels[channel]->play(fn.c_str());
-  delay(10);
+  //while this delay is recommended, we are operating properly without it.
+  //likely due to debounce and play queuing
+  //delay(10);
 
 } //end playWAV
