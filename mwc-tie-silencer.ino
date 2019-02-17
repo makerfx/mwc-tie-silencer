@@ -104,6 +104,7 @@ Metro bgmMetro = Metro(100);
 Metro playQueueMetro = Metro(50);
 
 bool bgmStatus = 1;           //0 = BGM off; 1 = BGM on
+bool engineStatus = 1;        //0 = Engine off; 1 = Engine on
 
 //for USB host functions
 #include "USBHost_t36.h"
@@ -236,10 +237,14 @@ void loop() {
       //check on background music
       if (bgmStatus && !channels[CHANNEL_MUSIC]->isPlaying()) { 
         playWAV(CHANNEL_MUSIC, "BACKGND1.WAV"); 
-        //todo, switch this to random background music
+        //play random BACKGND#.WAV
+        String fn = "BACKGND";
+        fn = fn + random (1, NUM_BGM_WAVS + 1) + ".WAV";
+        playWAV( CHANNEL_MUSIC, fn);
+
       }
       //check on engine
-      if (!channels[CHANNEL_ENGINE]->isPlaying()) {
+      if (engineStatus && !channels[CHANNEL_ENGINE]->isPlaying()) {
         //We want ENGINE1.WAV (baseline engine) playing whenever ENGINE2.WAV (thrust) is NOT playing
         playWAV(CHANNEL_ENGINE, "ENGINE1.WAV");
       }
@@ -312,7 +317,7 @@ void processAction (int action, int src, int key, int data) {
       case ACTION_TORPEDO:            actionTorpedo(); break;
       case ACTION_LASER:              actionLaser();   break;
       case ACTION_KYLO:               actionKylo(data);    break;
-      case ACTION_ENGINE:             actionEngine();  break;
+      case ACTION_ENGINE:             actionEngine(data);  break;
       case ACTION_BGM_TOGGLE:         actionBGMToggle(); break;
    
   }
@@ -325,7 +330,7 @@ void actionTorpedo() {
 
   //play random TORPEDO#.WAV
   String fn = "TORPEDO";
-  fn = fn + random (1, NUM_TORPEDO_WAVS + 1) + ".wav";
+  fn = fn + random (1, NUM_TORPEDO_WAVS + 1) + ".WAV";
   queueWAV( CHANNEL_WEAPON, fn);
 
   //torpedo LED animation
@@ -342,7 +347,7 @@ void actionLaser() {
 
   //play random LASER#.WAV
   String fn = "LASER";
-  fn = fn + random (1, NUM_LASER_WAVS + 1) + ".wav";
+  fn = fn + random (1, NUM_LASER_WAVS + 1) + ".WAV";
   queueWAV( CHANNEL_WEAPON, fn);
   
 }
@@ -358,19 +363,30 @@ void actionKylo(int data) {
   else {
     //play random KYLO#.WAV
     String fn = "KYLO";
-    fn = fn + random (1, NUM_KYLO_WAVS + 1) + ".wav";
+    fn = fn + random (1, NUM_KYLO_WAVS + 1) + ".WAV";
     queueWAV( CHANNEL_SPEECH, fn);
     }  
   
 }
 
-void actionEngine() {
+void actionEngine(int data) {
 #if DEBUG_ACTION
   Serial.println("There is no sound in space, but let's make some anyway!");
 #endif
-  
+
+  if (data > BUTTON_HOLD_DURATION) {
+    engineStatus = !engineStatus;
+#if DEBUG_AUDIO
+    Serial.print("Engine  status = ");
+    Serial.println(engineStatus);
+#endif
+
+    if (!engineStatus) channels[CHANNEL_ENGINE]->stop();
+    }
+  else {
   //engine lighting animation
   queueWAV(CHANNEL_ENGINE, "ENGINE2.WAV");
+  }
 }
 
 /*
