@@ -1,19 +1,12 @@
 // Magic Wheelchair - Tie Silencer 
 //
-// reference: Using USB MIDI - https://www.pjrc.com/teensy/td_midi.html
 // reference: 
 // IMPORTANT NOTE: 8.3 FILENAMES FOR WAV AUDIO FILES!
 // IMPORTANT NOTE: WAV 44100 STEREO 16BIT
 
-
-/*
- * Todo:
- * Redo the audio includes with the audio design tool
- * 
- * 
- */
-
-
+#define DEBUG_INPUT  0  //input functions will Serial.print if 1
+#define DEBUG_AUDIO  1  //audio functions will Serial.print if 1
+#define DEBUG_ACTION 1  //action functions will Serial.print if 1
 
 /*
  * Audio System Includes & Globals
@@ -28,16 +21,44 @@
 #include <SD.h>
 #include <SerialFlash.h>
 
-
 // GUItool: begin automatically generated code
-
-AudioPlaySdWav           playSdWav1;
-AudioOutputI2S           i2s1;
-AudioConnection          patchCord1(playSdWav1, 0, i2s1, 0);
-AudioConnection          patchCord2(playSdWav1, 1, i2s1, 1);
-AudioControlSGTL5000     sgtl5000_1;
-
+AudioPlaySdWav           playSdWav1;     //xy=163,192
+AudioPlaySdWav           playSdWav0;     //xy=165,133
+AudioPlaySdWav           playSdWav2;     //xy=165,251
+AudioMixer4              mixer2;         //xy=347.16668701171875,251.3333282470703
+AudioMixer4              mixer1;         //xy=350.0000305175781,146.1666717529297
+AudioOutputI2S           i2s1;           //xy=501.1666564941406,193.6666717529297
+AudioConnection          patchCord1(playSdWav1, 0, mixer1, 1);
+AudioConnection          patchCord2(playSdWav1, 1, mixer2, 1);
+AudioConnection          patchCord3(playSdWav0, 0, mixer1, 0);
+AudioConnection          patchCord4(playSdWav0, 1, mixer2, 0);
+AudioConnection          patchCord5(playSdWav2, 0, mixer1, 2);
+AudioConnection          patchCord6(playSdWav2, 1, mixer2, 2);
+AudioConnection          patchCord7(mixer2, 0, i2s1, 1);
+AudioConnection          patchCord8(mixer1, 0, i2s1, 0);
+AudioControlSGTL5000     sgtl5000_1;     //xy=106,55
 // GUItool: end automatically generated code
+
+/*
+playSdWav0 - Background music
+playSdWav1 - Kylo & Engine
+playSdWav2 - Laser & Torpedo
+
+SD Card tests showed that loading three simultaneous wav files was safe, 4 was not
+*/
+
+#define CHANNEL_MUSIC     0
+#define CHANNEL_ENGINE    1
+#define CHANNEL_SPEECH    1
+#define CHANNEL_WEAPON    2
+
+AudioPlaySdWav *channels[] = { &playSdWav0, &playSdWav1, &playSdWav2 };
+
+#define NUM_BGM_WAVS        1
+#define NUM_LASER_WAVS      1
+#define NUM_TORPEDO_WAVS    1
+#define NUM_ENGINE_WAVS     1
+#define NUM_SPEECH_WAVS     1
 
 
 //LED ALL THE THINGS!
@@ -62,33 +83,12 @@ CRGB cockpitLEDS[COCKPIT_NUM_LEDS];
 
 //Show & Mode Globals
 
-#include <Metro.h> //Include Metro library
-Metro showMetro = Metro(100); 
-Metro fftMetro = Metro(50); 
-Metro chaseMetro = Metro(20); 
 
 
-#define SHOW_DEFAULT  0
-#define SHOW_FLARE    1
-#define SHOW_SPEAKING 2
-#define SHOW_PLAYING  3
-#define SHOW_HONKING  4
+#include <Metro.h> //Include Metro library 
 
-#define NUM_MODES       8
-#define DEFAULT_MODE    3
-
-#define MODE_OFF            0
-#define MODE_FFT_SPLIT      1
-#define MODE_FFT_STRAIGHT   2
-#define MODE_PEAK_SPLIT     3
-#define MODE_PEAK_STRAIGHT  4
-#define MODE_CHASE1         5
-#define MODE_CHASE2         6
-#define MODE_CHASE3         7
-
-
-int currentShow = 0; //shows = speaking / playing, honking, default, off
-int currentMode = DEFAULT_MODE; //modes are what is happening during the default show; fft, chase, etc.
+Metro bgmMetro = Metro(500);
+bool bgmStatus = 0;
 
 //for USB host functions
 #include "USBHost_t36.h"
@@ -106,10 +106,6 @@ unsigned long lastPlayStart = 0;
 #define SDCARD_MOSI_PIN  11  // not actually used
 #define SDCARD_SCK_PIN   13  // not actually used
 
-#define NUM_VOICE_FILES 26
-#define NUM_SOUND_FILES 7
-
-
 #define SOURCE_KEY                    0
 #define SOURCE_BUTTON                 1
 
@@ -120,7 +116,7 @@ unsigned long lastPlayStart = 0;
 #define ACTION_LASER                 2
 #define ACTION_KYLO                  3
 #define ACTION_ENGINE                4
-#define ACTION_BACKGROUND_TOGGLE     5
+#define ACTION_BGM_TOGGLE            5 //BGM = BACKGROUND MUSIC
 
 
 #define ACTION_PLAY_WAV               10
@@ -143,14 +139,19 @@ int ActionMap[][3] = {
   {SOURCE_KEY, 211, ACTION_LASER},              //remote left
   {SOURCE_KEY,  27, ACTION_KYLO},               //remote up
   {SOURCE_KEY,  98, ACTION_ENGINE},             //remote down
-  {SOURCE_KEY, 198, ACTION_BACKGROUND_TOGGLE},  //remote play
+  {SOURCE_KEY, 198, ACTION_BGM_TOGGLE},         //remote play
+  {SOURCE_BUTTON, 0, ACTION_TORPEDO},            //blue button
+  {SOURCE_BUTTON, 1, ACTION_LASER},              //green button
+  {SOURCE_BUTTON, 2, ACTION_KYLO},               //white button
+  {SOURCE_BUTTON, 3, ACTION_ENGINE},             //red button
+  
    
 };
 
 
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   AudioMemory(128);
   sgtl5000_1.enable();
   sgtl5000_1.volume(0.4);
@@ -187,6 +188,16 @@ void setup() {
   cockpitLEDS[0] = CRGB(255,255,255);
   engineLEDS[0] = CRGB(255,255,255);
   FastLED.show();
+
+
+  
+  Serial.print("DEBUG_INPUT = ");
+  Serial.println(DEBUG_INPUT);
+  Serial.print("DEBUG_ACTION = ");
+  Serial.println(DEBUG_ACTION);
+  Serial.print("DEBUG_AUDIO = ");
+  Serial.println(DEBUG_AUDIO);
+
   
   delay(1000);
 }
@@ -194,45 +205,21 @@ void setup() {
 void loop() {
 
   myusb.Task();
- 
-  if (showMetro.check() == 1) { // check if the metro has passed its interval .
-      updateModeShow(); //update the show 10 times a second 
-      } //end showMetro check
- 
-  if (fftMetro.check() == 1) { // check if the metro has passed its interval .
-      if (currentShow == SHOW_DEFAULT) {
-        switch (currentMode) {
-          //do stuff;
-         
-        } //end switch
-      } //end if
-    } //end fftMetro check
-  
-  if (chaseMetro.check() == 1) {
-      if (currentShow == SHOW_DEFAULT) {
-        switch (currentMode) {
-          //do stuff
-        } //end switch
-      } //end if
-  } //end chaseMetro      
-}
 
-
-void updateModeShow() {
-
- switch (currentShow) {
-  
-  case SHOW_DEFAULT:  
-    break;  
- }
-
-  FastLED.show();
+   if (bgmMetro.check() == 1) { // check if the metro has passed its interval .
+      if (bgmStatus && !channels[CHANNEL_MUSIC]->isPlaying()) {
+        channels[CHANNEL_MUSIC]->play("BACKGND1.WAV");  
+      }
+   } //end bgmMetro check
+   
 }
 
 
 void OnPress(int key)
 {
+#if DEBUG_INPUT
   Serial.print("key: "); Serial.println(key);
+#endif
   mapAction(SOURCE_KEY, key, 0);   
 }
 
@@ -251,69 +238,90 @@ void mapAction(int src, int key, int data) {
 
 void processAction (int action, int src, int key, int data) {
   switch (action) {
-    //case ACTION_PLAY_WAV:           actionPlayWAV(data); break;
-    //case ACTION_PLAY_WAV_RND:       actionPlayRandomWAV(); break;
- 
+   
       case ACTION_TORPEDO:            actionTorpedo(); break;
       case ACTION_LASER:              actionLaser();   break;
       case ACTION_KYLO:               actionKylo();    break;
       case ACTION_ENGINE:             actionEngine();  break;
-      case ACTION_BACKGROUND_TOGGLE:  actionBackgroundMusicToggle(); break;
+      case ACTION_BGM_TOGGLE:         actionBGMToggle(); break;
    
   }
 }
 
 void actionTorpedo() {
+#if DEBUG_ACTION
   Serial.println("Torpedo away!");
+#endif
+
   //torpedo sound
+  String fn = "TORPEDO";
+  fn = fn + random (1, NUM_TORPEDO_WAVS + 1) + ".wav";
+  playFile( CHANNEL_WEAPON, fn);
+
   //torpedo LED animation
 
-  actionPlayWAV("TORPEDO1.WAV");
 }
 
 void actionLaser() {
+#if DEBUG_ACTION
   Serial.println("Fire the LAZORS!");
+#endif
+
   //laser sound
   //laser LED animation
-  actionPlayWAV("LASER1.WAV");
-}
-
-void actionKylo() {
-  Serial.println("Kylo was here!");
-  //random Kylo speech
-  //cockpit lighting animation?
-  actionPlayWAV("KYLO1.WAV");
-}
-
-void actionEngine() {
-  Serial.println("There is no sound in space, but let's make some anyway!");
-  //play spaceship sound
-  //engine lighting animation
-  actionPlayWAV("ENGINE1.WAV");
-}
-
-void actionBackgroundMusicToggle() {
-  Serial.println("Toggle the background music");
-  //if on, then off
-  //if off, then on
-  //need to write something to watch for file playing and then restart it
+ 
+  channels[CHANNEL_WEAPON]->play("LASER1.WAV");
   
 }
 
-
-void actionPlayRandomWAV() {
- Serial.println("actionPlayRandomWAV");
- playRandomVoiceFile();
+void actionKylo() {
+#if DEBUG_ACTION
+  Serial.println("Kylo was here!");
+#endif
+  //random Kylo speech
+  //cockpit lighting animation?
+  actionPlayWAV(CHANNEL_SPEECH, "TIMPANI1.WAV");
 }
 
-void actionPlayWAV (char* filename) {
+void actionEngine() {
+#if DEBUG_ACTION
+  Serial.println("There is no sound in space, but let's make some anyway!");
+#endif
+  //play spaceship sound
+  //engine lighting animation
+  actionPlayWAV(CHANNEL_ENGINE, "SDTEST2.WAV");
+}
+
+/*
+ * actionBGMToggle() is used to toggle the status of Background Music
+ * and will stop if the status is now off
+ * Note that there is a metro that watches for BGM to finish and restarts, 
+ * so we will let that metro start the music once we change the status
+ * 
+ */
+void actionBGMToggle() {
+
+  bgmStatus = !bgmStatus;
+
+#if DEBUG_AUDIO
+  Serial.print("Background music status = ");
+  Serial.println(bgmStatus);
+#endif
+
+  if (!bgmStatus) channels[CHANNEL_MUSIC]->stop();
+ 
+  
+}
+
+void actionPlayWAV (int channel, char* filename) {
  //note: this function does not have the rate protection code to prevent button spamming locks
+#if DEBUG_AUDIO
  Serial.print("actionPlayWAV - ");
  Serial.println(filename);
- playFile(filename);
- // playSdWav1.play("HORN.WAV");
- //playFile("SDTEST2.WAV");
-
+#endif
+ 
+ playFile(channel, filename);
+ 
 }
 
 //needed for string constants in the processAction function
@@ -329,16 +337,17 @@ void actionPlayWAV (char const* filename) {
  * 
  */
 
- bool playFile (String fn) {
+ bool playFile (int channel, String fn) {
   unsigned long curMillis = millis();
   unsigned long playDelay = 200;
   unsigned long testVal = (playDelay + lastPlayStart);
 
-  Serial.print ("playFile-");
-  Serial.println (fn);
+  //Serial.print ("playFile-");
+  
   //Serial.println  (millis());
   //Serial.println (lastPlayStart);
   //Serial.println (testVal);
+
 
   //IF NOT PLAYING OR ENOUGH TIME HAS ELAPSED
   if (( playSdWav1.isPlaying() == false) || (curMillis > testVal) ) {
@@ -353,49 +362,3 @@ void actionPlayWAV (char const* filename) {
     return false;
   }
 } //end playFile
-
-
-/*
- * Audio Playback
- * playRandomVoiceFile - this plays a random wav file from the voice files
- * there is NO "debounce" on this to prevent locking behavior
- */
-int playRandomVoiceFile() {
-    
-    //pick random number
-    int i = random (1, NUM_VOICE_FILES + 1); //random returns up to (max-1)
-
-    //generate filename
-    String fn = "/bb-wavs/bb";
-    fn = fn + i + ".wav";
-
-     if (playFile(fn)) {
-      Serial.print("playRandomVoiceFile: ");
-      Serial.println(fn);
-     }
-    
-    return i;
-}
-
-
-/*
- * Audio Playback
- * playRandomSoundFile - this plays a random wav file from the voice files
- * there is NO "debounce" on this to prevent locking behavior
- */
-int playRandomSoundFile() {
-    
-    //pick random number
-    int i = random (1, NUM_SOUND_FILES);
-
-    //generate filename
-    String fn = "/bb-wavs/bbs";
-    fn = fn + i + ".wav";
-
-    if (playFile(fn)) {
-      Serial.print("playRandomSoundFile: ");
-      Serial.println(fn);
-     }
-    
-    return i;
-}
