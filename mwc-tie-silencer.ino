@@ -49,16 +49,19 @@ AudioConnection          patchCord8(mixer1, 0, i2s1, 0);
 AudioControlSGTL5000     sgtl5000_1;     //xy=106,55
 // GUItool: end automatically generated code
 
-/*
-SD Card tests showed that loading three simultaneous wav files was safe, 4 was not
-*/
+#define NUM_CHANNELS       3     //SD Card playback is best to not exceed 3 simultaneous WAVs
+                                 //There is an SD card test in the Audio examples
 
-#define NUM_CHANNELS      4
+#define CHANNEL_MUSIC      0     //Only one item can play per channel
+#define CHANNEL_ENGINE     1     //Use these to map sound types to a channel
+#define CHANNEL_SPEECH     2     
+#define CHANNEL_WEAPON     2
 
-#define CHANNEL_MUSIC     0
-#define CHANNEL_ENGINE    1
-#define CHANNEL_SPEECH    2
-#define CHANNEL_WEAPON    2
+#define LEVEL_CHANNEL0    .3    //change these for relative channel levels
+#define LEVEL_CHANNEL1    .3
+#define LEVEL_CHANNEL2    .8  
+
+#define MAIN_VOLUME       .8    //change this to reduce clipping in the main amp
 
 //I use this syntax so that I can leave the declarations above which come from the Audio Design tool
 AudioPlaySdWav *channels[NUM_CHANNELS] = { &playSdWav0, &playSdWav1, &playSdWav2 };
@@ -203,14 +206,20 @@ void setup() {
   engineLEDS[0] = CRGB(255,255,255);
   FastLED.show();
 
-
-  
   Serial.print("DEBUG_INPUT = ");
   Serial.println(DEBUG_INPUT);
   Serial.print("DEBUG_ACTION = ");
   Serial.println(DEBUG_ACTION);
   Serial.print("DEBUG_AUDIO = ");
   Serial.println(DEBUG_AUDIO);
+
+  //set relative volumes by channel
+  mixer1.gain(0, LEVEL_CHANNEL0);
+  mixer2.gain(0, LEVEL_CHANNEL0);
+  mixer1.gain(1, LEVEL_CHANNEL1);
+  mixer2.gain(1, LEVEL_CHANNEL1);
+  mixer1.gain(2, LEVEL_CHANNEL2);
+  mixer2.gain(2, LEVEL_CHANNEL2);
 
   
   delay(1000);
