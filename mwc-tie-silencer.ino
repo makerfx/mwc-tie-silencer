@@ -16,7 +16,7 @@
 
 #define NUM_BUTTONS 4
 int buttonPins[NUM_BUTTONS] = { 0, 1, 2, 3 };
-Bounce buttons[NUM_BUTTONS] = { {buttonPins[0], 500}, {buttonPins[1], 500}, {buttonPins[2], 500},{buttonPins[3], 500} };
+Bounce buttons[NUM_BUTTONS] = { {buttonPins[0], 250}, {buttonPins[1], 250}, {buttonPins[2], 1000},{buttonPins[3], 1000} };
 
 /*
  * Audio System Includes & Globals
