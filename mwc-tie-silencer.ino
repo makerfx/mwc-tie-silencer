@@ -68,7 +68,7 @@ String playQueue[NUM_CHANNELS];
 #define NUM_LASER_WAVS      7  //plays random file
 #define NUM_TORPEDO_WAVS    4  //plays random file
 #define NUM_ENGINE_WAVS     2  //plays 0 all the time, then 1 when button pressed
-#define NUM_SPEECH_WAVS     9  //plays random
+#define NUM_KYLO_WAVS       9  //plays random
 
 
 //LED ALL THE THINGS!
@@ -297,7 +297,7 @@ void actionTorpedo() {
   Serial.println("Torpedo away!");
 #endif
 
-  //torpedo sound
+  //play random TORPEDO#.WAV
   String fn = "TORPEDO";
   fn = fn + random (1, NUM_TORPEDO_WAVS + 1) + ".wav";
   queueWAV( CHANNEL_WEAPON, fn);
@@ -313,8 +313,11 @@ void actionLaser() {
 
   //laser sound
   //laser LED animation
- 
-  queueWAV(CHANNEL_WEAPON, "LASER1.WAV");
+
+  //play random LASER#.WAV
+  String fn = "LASER";
+  fn = fn + random (1, NUM_LASER_WAVS + 1) + ".wav";
+  queueWAV( CHANNEL_WEAPON, fn);
   
 }
 
@@ -322,16 +325,20 @@ void actionKylo() {
 #if DEBUG_ACTION
   Serial.println("Kylo was here!");
 #endif
-  //random Kylo speech
   //cockpit lighting animation?
-  queueWAV(CHANNEL_SPEECH, "KYLO1.WAV");
+  
+  //play random KYLO#.WAV
+  String fn = "KYLO";
+  fn = fn + random (1, NUM_KYLO_WAVS + 1) + ".wav";
+  queueWAV( CHANNEL_SPEECH, fn);
+  
 }
 
 void actionEngine() {
 #if DEBUG_ACTION
   Serial.println("There is no sound in space, but let's make some anyway!");
 #endif
-  //play spaceship sound
+  
   //engine lighting animation
   queueWAV(CHANNEL_ENGINE, "ENGINE2.WAV");
 }
