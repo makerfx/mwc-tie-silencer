@@ -9,6 +9,16 @@
 #define DEBUG_ACTION 1  //action functions will Serial.print if 1
 
 /*
+ * Hardware Buttons
+ */
+ 
+#include <Bounce.h>
+
+#define NUM_BUTTONS 4
+int buttonPins[NUM_BUTTONS] = { 0, 1, 2, 3 };
+Bounce buttons[NUM_BUTTONS] = { {buttonPins[0], 500}, {buttonPins[1], 500}, {buttonPins[2], 500},{buttonPins[3], 500} };
+
+/*
  * Audio System Includes & Globals
  * Reference the Audio Design Tool - https://www.pjrc.com/teensy/gui/index.html
  * 
@@ -123,8 +133,6 @@ unsigned long lastPlayStart = 0;
 #define ACTION_PLAY_WAV_RND           11
 
 
-
-
 #define ACTION_MAP_SIZE 8l
 
 /*
@@ -172,8 +180,12 @@ void setup() {
   Serial.println("USB Host Setup");
   myusb.begin();
   keyboard1.attachPress(OnPress);
-  
- 
+
+  for (int btn = 0; btn< NUM_BUTTONS; btn++) {
+    pinMode(buttonPins[btn], INPUT_PULLUP);
+    buttons[btn].update();
+  }
+
   //Rings like BRG space to be the same as the RGB strip
   LEDS.addLeds<WS2812SERIAL,  LASER_DATA_PIN,   BRG>(laserLEDS,   LASER_NUM_LEDS);
   LEDS.addLeds<WS2812SERIAL,  COCKPIT_DATA_PIN, BRG>(cockpitLEDS, COCKPIT_NUM_LEDS); 
@@ -204,6 +216,7 @@ void setup() {
 
 void loop() {
 
+  updateButtons();
   myusb.Task();
 
    if (bgmMetro.check() == 1) { // check if the metro has passed its interval .
@@ -211,9 +224,18 @@ void loop() {
         channels[CHANNEL_MUSIC]->play("BACKGND1.WAV");  
       }
    } //end bgmMetro check
+
    
 }
 
+void updateButtons() {
+    for (int btn = 0; btn< NUM_BUTTONS; btn++) {
+      buttons[btn].update();
+      if (buttons[btn].fallingEdge()){
+        mapAction(SOURCE_BUTTON, btn, 0);
+        }
+    }
+}
 
 void OnPress(int key)
 {
