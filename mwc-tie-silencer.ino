@@ -39,22 +39,28 @@ unsigned long keyHeldDuration;
 #include <SerialFlash.h>
 
 // GUItool: begin automatically generated code
-AudioPlaySdWav           playSdWav1;     //xy=163,192
-AudioPlaySdWav           playSdWav0;     //xy=165,133
-AudioPlaySdWav           playSdWav2;     //xy=165,251
-AudioMixer4              mixer2;         //xy=347.16668701171875,251.3333282470703
+AudioPlaySdWav           playSdWav2;     //xy=163,192
+AudioPlaySdWav           playSdWav1;     //xy=165,133
+AudioPlaySdWav           playSdWav3;     //xy=165,251
+AudioMixer4              mixer2;         //xy=348.16668701171875,238.3333282470703
 AudioMixer4              mixer1;         //xy=350.0000305175781,146.1666717529297
-AudioOutputI2S           i2s1;           //xy=501.1666564941406,193.6666717529297
-AudioConnection          patchCord1(playSdWav1, 0, mixer1, 1);
-AudioConnection          patchCord2(playSdWav1, 1, mixer2, 1);
-AudioConnection          patchCord3(playSdWav0, 0, mixer1, 0);
-AudioConnection          patchCord4(playSdWav0, 1, mixer2, 0);
-AudioConnection          patchCord5(playSdWav2, 0, mixer1, 2);
-AudioConnection          patchCord6(playSdWav2, 1, mixer2, 2);
+AudioMixer4              mixer3;         //xy=569,306
+AudioOutputI2S           i2s1;           //xy=578.1666564941406,152.6666717529297
+AudioAnalyzePeak         peak1;          //xy=709,306
+AudioConnection          patchCord1(playSdWav2, 0, mixer1, 1);
+AudioConnection          patchCord2(playSdWav2, 1, mixer2, 1);
+AudioConnection          patchCord3(playSdWav1, 0, mixer1, 0);
+AudioConnection          patchCord4(playSdWav1, 1, mixer2, 0);
+AudioConnection          patchCord5(playSdWav3, 0, mixer1, 2);
+AudioConnection          patchCord6(playSdWav3, 1, mixer2, 2);
 AudioConnection          patchCord7(mixer2, 0, i2s1, 1);
-AudioConnection          patchCord8(mixer1, 0, i2s1, 0);
+AudioConnection          patchCord8(mixer2, 0, mixer3, 1);
+AudioConnection          patchCord9(mixer1, 0, i2s1, 0);
+AudioConnection          patchCord10(mixer1, 0, mixer3, 0);
+AudioConnection          patchCord11(mixer3, peak1);
 AudioControlSGTL5000     sgtl5000_1;     //xy=106,55
 // GUItool: end automatically generated code
+
 
 #define NUM_CHANNELS       3     //SD Card playback is best to not exceed 3 simultaneous WAVs
                                  //There is an SD card test in the Audio examples
@@ -71,7 +77,7 @@ AudioControlSGTL5000     sgtl5000_1;     //xy=106,55
 #define MAIN_VOLUME       .8    //change this to reduce clipping in the main amp
 
 //I use this syntax so that I can leave the declarations above which come from the Audio Design tool
-AudioPlaySdWav *channels[NUM_CHANNELS] = { &playSdWav0, &playSdWav1, &playSdWav2 };
+AudioPlaySdWav *channels[NUM_CHANNELS] = { &playSdWav1, &playSdWav2, &playSdWav3 };
 String playQueue[NUM_CHANNELS];
 
 #define NUM_BGM_WAVS        6  //plays random file //set to 3 for KYLO specific
@@ -99,7 +105,7 @@ CRGB engineLEDS[ENGINE_NUM_LEDS];
 #define COCKPIT_DATA_PIN 32
 CRGB cockpitLEDS[COCKPIT_NUM_LEDS]; 
 
-#define DEFAULT_BRIGHTNESS 255
+#define DEFAULT_BRIGHTNESS 32
 
 //Show & Mode Globals
 
@@ -378,7 +384,7 @@ void actionLaser() {
   String fn = "LASER";
   fn = fn + random (1, NUM_LASER_WAVS + 1) + ".WAV";
   queueWAV( CHANNEL_WEAPON, fn);
-  
+    
 }
 
 void actionKylo(int data) {
