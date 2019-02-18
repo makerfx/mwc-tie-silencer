@@ -7,6 +7,7 @@
 #define DEBUG_INPUT  1  //input functions will Serial.print if 1
 #define DEBUG_AUDIO  1  //audio functions will Serial.print if 1
 #define DEBUG_ACTION 1  //action functions will Serial.print if 1
+#define DEBUG_PEAK   0  //Peak Audio functions will Serial.print if 1
 
 /*
  * Hardware Buttons
@@ -31,7 +32,6 @@ unsigned long keyHeldDuration = 0;
  * 
  */
 
-
 #include <Audio.h>
 #include <Wire.h>
 #include <SPI.h>
@@ -42,22 +42,32 @@ unsigned long keyHeldDuration = 0;
 AudioPlaySdWav           playSdWav2;     //xy=163,192
 AudioPlaySdWav           playSdWav1;     //xy=165,133
 AudioPlaySdWav           playSdWav3;     //xy=165,251
+AudioMixer4              mixer3;         //xy=347,337
 AudioMixer4              mixer2;         //xy=348.16668701171875,238.3333282470703
 AudioMixer4              mixer1;         //xy=350.0000305175781,146.1666717529297
-AudioMixer4              mixer3;         //xy=569,306
+AudioMixer4              mixer4;         //xy=351,422
+AudioMixer4              mixer5;         //xy=351,503
 AudioOutputI2S           i2s1;           //xy=578.1666564941406,152.6666717529297
-AudioAnalyzePeak         peak1;          //xy=709,306
+AudioAnalyzePeak         peak1;          //xy=594,337
+AudioAnalyzePeak         peak3;          //xy=595,502
+AudioAnalyzePeak         peak2;          //xy=596,421
 AudioConnection          patchCord1(playSdWav2, 0, mixer1, 1);
-AudioConnection          patchCord2(playSdWav2, 1, mixer2, 1);
-AudioConnection          patchCord3(playSdWav1, 0, mixer1, 0);
-AudioConnection          patchCord4(playSdWav1, 1, mixer2, 0);
-AudioConnection          patchCord5(playSdWav3, 0, mixer1, 2);
-AudioConnection          patchCord6(playSdWav3, 1, mixer2, 2);
-AudioConnection          patchCord7(mixer2, 0, i2s1, 1);
-AudioConnection          patchCord8(mixer2, 0, mixer3, 1);
-AudioConnection          patchCord9(mixer1, 0, i2s1, 0);
-AudioConnection          patchCord10(mixer1, 0, mixer3, 0);
-AudioConnection          patchCord11(mixer3, peak1);
+AudioConnection          patchCord2(playSdWav2, 0, mixer4, 0);
+AudioConnection          patchCord3(playSdWav2, 1, mixer2, 1);
+AudioConnection          patchCord4(playSdWav2, 1, mixer4, 1);
+AudioConnection          patchCord5(playSdWav1, 0, mixer1, 0);
+AudioConnection          patchCord6(playSdWav1, 0, mixer3, 0);
+AudioConnection          patchCord7(playSdWav1, 1, mixer2, 0);
+AudioConnection          patchCord8(playSdWav1, 1, mixer3, 1);
+AudioConnection          patchCord9(playSdWav3, 0, mixer1, 2);
+AudioConnection          patchCord10(playSdWav3, 0, mixer5, 0);
+AudioConnection          patchCord11(playSdWav3, 1, mixer2, 2);
+AudioConnection          patchCord12(playSdWav3, 1, mixer5, 1);
+AudioConnection          patchCord13(mixer3, peak1);
+AudioConnection          patchCord14(mixer2, 0, i2s1, 1);
+AudioConnection          patchCord15(mixer1, 0, i2s1, 0);
+AudioConnection          patchCord16(mixer4, peak2);
+AudioConnection          patchCord17(mixer5, peak3);
 AudioControlSGTL5000     sgtl5000_1;     //xy=106,55
 // GUItool: end automatically generated code
 
@@ -70,6 +80,10 @@ AudioControlSGTL5000     sgtl5000_1;     //xy=106,55
 #define CHANNEL_SPEECH     2     
 #define CHANNEL_WEAPON     2
 
+#define PEAK_ENGINE        1     //Use these to peak analysis to an audio channel
+#define PEAK_SPEECH        2     
+
+
 #define LEVEL_CHANNEL0    .3    //change these for relative channel levels
 #define LEVEL_CHANNEL1    .3
 #define LEVEL_CHANNEL2    .8  
@@ -79,6 +93,10 @@ AudioControlSGTL5000     sgtl5000_1;     //xy=106,55
 //I use this syntax so that I can leave the declarations above which come from the Audio Design tool
 AudioPlaySdWav *channels[NUM_CHANNELS] = { &playSdWav1, &playSdWav2, &playSdWav3 };
 String playQueue[NUM_CHANNELS];
+
+AudioAnalyzePeak  *peakAnalyzers[NUM_CHANNELS] = { &peak1, &peak2, &peak3 };
+
+
 
 #define NUM_BGM_WAVS        6  //plays random file //set to 3 for KYLO specific
 #define NUM_LASER_WAVS      7  //plays random file
@@ -94,18 +112,18 @@ String playQueue[NUM_CHANNELS];
 
 
 #define LASER_NUM_LEDS 20 
-#define LASER_DATA_PIN 33
+#define LASER_DATA_PIN 26
 CRGB laserLEDS[LASER_NUM_LEDS];
 
-#define ENGINE_NUM_LEDS 52 
-#define ENGINE_DATA_PIN 26
+#define ENGINE_NUM_LEDS 20 
+#define ENGINE_DATA_PIN 33
 CRGB engineLEDS[ENGINE_NUM_LEDS]; 
 
 #define COCKPIT_NUM_LEDS 10
 #define COCKPIT_DATA_PIN 32
 CRGB cockpitLEDS[COCKPIT_NUM_LEDS]; 
 
-#define DEFAULT_BRIGHTNESS 32
+#define DEFAULT_BRIGHTNESS 96
 
 //Show & Mode Globals
 
@@ -113,6 +131,8 @@ CRGB cockpitLEDS[COCKPIT_NUM_LEDS];
 
 Metro bgmMetro = Metro(100);
 Metro playQueueMetro = Metro(50);
+Metro animationMetro = Metro(33); //approx 30 frames per second
+
 
 bool bgmStatus = 1;           //0 = BGM off; 1 = BGM on
 bool engineStatus = 1;        //0 = Engine off; 1 = Engine on
@@ -222,7 +242,9 @@ void setup() {
   Serial.println(DEBUG_ACTION);
   Serial.print("DEBUG_AUDIO = ");
   Serial.println(DEBUG_AUDIO);
-
+  Serial.print("DEBUG_PEAK = ");
+  Serial.println(DEBUG_PEAK);
+  
   //set relative volumes by channel
   mixer1.gain(0, LEVEL_CHANNEL0);
   mixer2.gain(0, LEVEL_CHANNEL0);
@@ -230,6 +252,15 @@ void setup() {
   mixer2.gain(1, LEVEL_CHANNEL1);
   mixer1.gain(2, LEVEL_CHANNEL2);
   mixer2.gain(2, LEVEL_CHANNEL2);
+
+  //these mixers feed the peak analysis
+  mixer3.gain(0, 0); //peak1 (bgm)
+  mixer3.gain(1, 0);
+  mixer4.gain(1,.3); //peak2 (engine)
+  mixer4.gain(1,.3);
+  mixer5.gain(1, 0); //peak3
+  mixer5.gain(1, 0);
+  
 
   //USB Host Setup
   Serial.println("USB Host Setup");
@@ -279,7 +310,33 @@ void loop() {
         playWAV(q,fn); 
       }
     }
-  }
+  } //end playQueueMetro check
+
+  if (animationMetro.check() == 1) { // check if the metro has passed its interval
+    //engine animation
+    
+    if (peakAnalyzers[CHANNEL_ENGINE]->available()) {
+      float peak = peakAnalyzers[CHANNEL_ENGINE]->read();
+#if DEBUG_PEAK 
+      Serial.print("Engine:");
+      Serial.println(peak);
+#endif
+      int peakbrt = map(peak,0,1,0,255);
+      fill_solid(engineLEDS, ENGINE_NUM_LEDS, CRGB(peakbrt,0,0));
+    }
+    else fill_solid(engineLEDS, ENGINE_NUM_LEDS, CRGB(0,0,0));
+    
+
+    if (peakAnalyzers[CHANNEL_SPEECH]->available()) {
+      float peak = peakAnalyzers[CHANNEL_SPEECH]->read();
+#if DEBUG_PEAK 
+      Serial.print("Speech:");
+      Serial.println(peak);
+#endif
+    }
+
+    FastLED.show();
+  } //end animationMetro Check
    
 }
 
