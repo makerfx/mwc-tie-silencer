@@ -20,8 +20,8 @@ Bounce buttons[NUM_BUTTONS] = { {buttonPins[0], 250}, {buttonPins[1], 250}, {but
 unsigned long buttonDuration[NUM_BUTTONS];    //holds the last millis() for a falling edge
 #define BUTTON_HOLD_DURATION 2000
 
-int keyHeld;
-unsigned long keyHeldDuration;
+int keyHeld = 0;
+unsigned long keyHeldDuration = 0;
 #define KEY_HOLD_DURATION 2000
 
 
@@ -195,14 +195,9 @@ void setup() {
   //seed random function
   randomSeed(analogRead(0));
 
-  //USB Host Setup
-  Serial.println("USB Host Setup");
-  myusb.begin();
-  keyboard1.attachPress(OnPress);
-  keyboard1.attachRelease(OnRelease);
-
   for (int btn = 0; btn< NUM_BUTTONS; btn++) {
     pinMode(buttonPins[btn], INPUT_PULLUP);
+    buttonDuration[btn] = 0; 
     buttons[btn].update();
   }
 
@@ -236,8 +231,15 @@ void setup() {
   mixer1.gain(2, LEVEL_CHANNEL2);
   mixer2.gain(2, LEVEL_CHANNEL2);
 
+  //USB Host Setup
+  Serial.println("USB Host Setup");
+  myusb.begin();
+  keyboard1.attachPress(OnPress);
+  keyboard1.attachRelease(OnRelease);
   
   delay(1000);
+  Serial.println("Setup Complete.");
+  
 }
 
 void loop() {
@@ -252,12 +254,18 @@ void loop() {
         //play random BACKGND#.WAV
         String fn = "BACKGND";
         fn = fn + random (1, NUM_BGM_WAVS + 1) + ".WAV";
+#if DEBUG_AUDIO
+        Serial.println("Starting Background Music from bgmMetro");
+#endif
         playWAV( CHANNEL_MUSIC, fn);
 
       }
       //check on engine
       if (engineStatus && !channels[CHANNEL_ENGINE]->isPlaying()) {
         //We want ENGINE1.WAV (baseline engine) playing whenever ENGINE2.WAV (thrust) is NOT playing
+#if DEBUG_AUDIO
+        Serial.println("Starting Background Engine Sound from bgmMetro");
+#endif
         playWAV(CHANNEL_ENGINE, "ENGINE1.WAV");
       }
       
@@ -286,8 +294,9 @@ void updateButtons() {
         //moved the action to button release 
         //mapAction(SOURCE_BUTTON, btn, 0);
       }
-     
-      if (buttons[btn].risingEdge()){
+
+      //if buttonDuration is zero, ignore since this is a button read on startup
+      if (buttons[btn].risingEdge() && buttonDuration[btn]){
 
         unsigned long duration = millis() - buttonDuration[btn];
 #if DEBUG_INPUT
