@@ -17,8 +17,13 @@
 #define NUM_BUTTONS 4
 int buttonPins[NUM_BUTTONS] = { 0, 1, 2, 3 };
 Bounce buttons[NUM_BUTTONS] = { {buttonPins[0], 250}, {buttonPins[1], 250}, {buttonPins[2], 1000},{buttonPins[3], 1000} };
-unsigned long buttonDuration[NUM_BUTTONS];
+unsigned long buttonDuration[NUM_BUTTONS];    //holds the last millis() for a falling edge
 #define BUTTON_HOLD_DURATION 2000
+
+int keyHeld;
+unsigned long keyHeldDuration;
+#define KEY_HOLD_DURATION 2000
+
 
 /*
  * Audio System Includes & Globals
@@ -188,6 +193,7 @@ void setup() {
   Serial.println("USB Host Setup");
   myusb.begin();
   keyboard1.attachPress(OnPress);
+  keyboard1.attachRelease(OnRelease);
 
   for (int btn = 0; btn< NUM_BUTTONS; btn++) {
     pinMode(buttonPins[btn], INPUT_PULLUP);
@@ -236,7 +242,7 @@ void loop() {
    if (bgmMetro.check() == 1) { // check if the metro has passed its interval 
       //check on background music
       if (bgmStatus && !channels[CHANNEL_MUSIC]->isPlaying()) { 
-        playWAV(CHANNEL_MUSIC, "BACKGND1.WAV"); 
+        
         //play random BACKGND#.WAV
         String fn = "BACKGND";
         fn = fn + random (1, NUM_BGM_WAVS + 1) + ".WAV";
@@ -293,9 +299,32 @@ void updateButtons() {
 void OnPress(int key)
 {
 #if DEBUG_INPUT
-  Serial.print("key: "); Serial.println(key);
+  Serial.print("Pressed key: "); Serial.println(key);
 #endif
-  mapAction(SOURCE_KEY, key, 0);   
+  //mapAction(SOURCE_KEY, key, 0);
+  keyHeld = key;
+  keyHeldDuration = millis();   
+}
+
+void OnRelease(int key)
+{
+#if DEBUG_INPUT
+  Serial.print("Released key: "); Serial.println(key);
+#endif
+
+  unsigned long duration = 0;
+  
+  if (keyHeld == key) {
+    duration = millis() - keyHeldDuration;
+  }
+  
+#if DEBUG_INPUT
+        Serial.print("KeyUp: "); 
+        Serial.print(key);
+        Serial.print("; Duration = "); 
+        Serial.println(duration);
+#endif
+  mapAction(SOURCE_KEY, key, duration);   
 }
 
 /* 
