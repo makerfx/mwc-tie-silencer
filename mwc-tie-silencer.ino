@@ -5,8 +5,8 @@
 // IMPORTANT NOTE: WAV 44100 STEREO 16BIT
 
 
-#define DEBUG_INPUT  1  //input functions will Serial.print if 1
-#define DEBUG_AUDIO  1  //audio functions will Serial.print if 1
+#define DEBUG_INPUT  0  //input functions will Serial.print if 1
+#define DEBUG_AUDIO  0  //audio functions will Serial.print if 1
 #define DEBUG_ACTION 1  //action functions will Serial.print if 1
 #define DEBUG_PEAK   0  //Peak Audio functions will Serial.print if 1
 #define DEBUG_ANIMATION   0  //Animation functions will Serial.print if 1
@@ -121,7 +121,7 @@ CRGB laserLEDS[LASER_NUM_LEDS];
 int laserFrame = 9999;
 int torpedoFrame = 9999;
 
-#define LASER_ANIMATION_HEIGHT 72
+#define LASER_ANIMATION_HEIGHT 60
 #define LASER_ANIMATION_WIDTH  16
 byte laserAnimation[LASER_ANIMATION_HEIGHT * LASER_ANIMATION_WIDTH * 3];
 
@@ -697,6 +697,9 @@ bool animateTorpedo() {
 }
 
 void loadAnimation (const char *fn, byte ani[], int aniHeight, int aniWidth) { 
+    Serial.print("Loading BMP: ");
+    Serial.println(fn);
+    
     // Open
     File bmpImage = SD.open(fn, FILE_READ);
     //File textFile = SD.open("test.txt", FILE_WRITE);
@@ -706,13 +709,13 @@ void loadAnimation (const char *fn, byte ani[], int aniHeight, int aniWidth) {
     // Change their types to int32_t (4byte)
     int32_t width = readNbytesInt(&bmpImage, 0x12, 4);
     int32_t height = readNbytesInt(&bmpImage, 0x16, 4);
-    Serial.println(width);
-    Serial.println(height);
+    Serial.print("Animation width: "); Serial.println(width);
+    Serial.print("Animation height: "); Serial.println(height);
 
-    if (width > aniWidth) Serial.print ("Warning BMP is wider than Array!");
-    if (height > aniHeight) Serial.print ("Warning BMP is taller than Array!");
-    if (width < aniWidth) Serial.print ("Warning BMP is narrower than Array!");
-    if (height < aniHeight) Serial.print ("Warning BMP is shorter than Array!");
+    if (width > aniWidth) Serial.println ("WARNING: BMP is wider than Array!");
+    if (height > aniHeight) Serial.println ("WARNING: BMP is taller than Array!");
+    if (width < aniWidth) Serial.println ("WARNING: BMP is narrower than Array!");
+    if (height < aniHeight) Serial.println ("WARNING: BMP is shorter than Array!");
     
     
 
@@ -753,16 +756,20 @@ void loadAnimation (const char *fn, byte ani[], int aniHeight, int aniWidth) {
             Serial.print(B);
             Serial.print(" ");
  */
+ #if DEBUG_ANIMATION
             if ( R || G || B ) Serial.print("*");
               else Serial.print(" ");
+ #endif
         }
+ #if DEBUG_ANIMATION
         Serial.print("\n");
+ #endif
     }
 
     bmpImage.close();
     //textFile.close();
 
-    Serial.print("Finished reading bmp: ");
+    Serial.print("Finished loading BMP: ");
     Serial.println(fn);
      
 }
