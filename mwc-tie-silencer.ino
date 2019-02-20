@@ -226,13 +226,19 @@ void setup() {
     }
   }
 
-  //Load animations from bmp files
-   
-  loadAnimation("laser11.bmp", laserAnimation, LASER_ANIMATION_HEIGHT, LASER_ANIMATION_WIDTH);
+  //Load animations from BMP files
+
+  //load laser animation
+  loadAnimation("LASER.BMP", laserAnimation, LASER_ANIMATION_HEIGHT, LASER_ANIMATION_WIDTH);
+ #if DEBUG_ANIMATION 
   printAnimation(laserAnimation, LASER_ANIMATION_HEIGHT, LASER_ANIMATION_WIDTH);
-  
-  loadAnimation("torpedo3.bmp", torpedoAnimation, TORPEDO_ANIMATION_HEIGHT, TORPEDO_ANIMATION_WIDTH);
+ #endif 
+
+  //load torpedo animation
+  loadAnimation("TORPEDO.BMP", torpedoAnimation, TORPEDO_ANIMATION_HEIGHT, TORPEDO_ANIMATION_WIDTH);
+#if DEBUG_ANIMATION 
   printAnimation(torpedoAnimation, TORPEDO_ANIMATION_HEIGHT, TORPEDO_ANIMATION_WIDTH);
+#endif
 
   //seed random function
   randomSeed(analogRead(0));
@@ -592,6 +598,13 @@ void playWAV (int channel, String fn) {
 } //end playWAV
 
 
+/*
+ * animation improvements
+ *  - generic animation function
+ *  - starting / stopping animation (don't like the frame 9999)
+ *  
+ */
+
 bool animateLaser() {
   if (laserFrame < LASER_ANIMATION_HEIGHT) {
 
@@ -633,6 +646,7 @@ bool animateLaser() {
   //else fill_solid(laserLEDS, LASER_NUM_LEDS, CRGB(0,0,0));
   
 }
+
 
 
 bool animateTorpedo() {
