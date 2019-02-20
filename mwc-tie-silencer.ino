@@ -4,10 +4,14 @@
 // IMPORTANT NOTE: 8.3 FILENAMES FOR WAV AUDIO FILES!
 // IMPORTANT NOTE: WAV 44100 STEREO 16BIT
 
+
 #define DEBUG_INPUT  1  //input functions will Serial.print if 1
 #define DEBUG_AUDIO  1  //audio functions will Serial.print if 1
 #define DEBUG_ACTION 1  //action functions will Serial.print if 1
 #define DEBUG_PEAK   0  //Peak Audio functions will Serial.print if 1
+#define DEBUG_ANIMATION   0  //Animation functions will Serial.print if 1
+
+
 
 /*
  * Hardware Buttons
@@ -111,16 +115,27 @@ AudioAnalyzePeak  *peakAnalyzers[NUM_CHANNELS] = { &peak1, &peak2, &peak3 };
 #include <FastLED.h>
 
 
-#define LASER_NUM_LEDS 20 
-#define LASER_DATA_PIN 26
+#define LASER_NUM_LEDS 16         //will be 16 
+#define LASER_DATA_PIN 32
 CRGB laserLEDS[LASER_NUM_LEDS];
+int laserFrame = 9999;
+int torpedoFrame = 9999;
+
+#define LASER_ANIMATION_HEIGHT 72
+#define LASER_ANIMATION_WIDTH  16
+byte laserAnimation[LASER_ANIMATION_HEIGHT * LASER_ANIMATION_WIDTH * 3];
+
+#define TORPEDO_ANIMATION_HEIGHT 72
+#define TORPEDO_ANIMATION_WIDTH  16
+byte torpedoAnimation[TORPEDO_ANIMATION_HEIGHT * TORPEDO_ANIMATION_WIDTH * 3];
+
 
 #define ENGINE_NUM_LEDS 20 
 #define ENGINE_DATA_PIN 33
 CRGB engineLEDS[ENGINE_NUM_LEDS]; 
 
 #define COCKPIT_NUM_LEDS 10
-#define COCKPIT_DATA_PIN 32
+#define COCKPIT_DATA_PIN 26
 CRGB cockpitLEDS[COCKPIT_NUM_LEDS]; 
 
 #define DEFAULT_BRIGHTNESS 96
@@ -131,7 +146,7 @@ CRGB cockpitLEDS[COCKPIT_NUM_LEDS];
 
 Metro bgmMetro = Metro(100);
 Metro playQueueMetro = Metro(50);
-Metro animationMetro = Metro(33); //approx 30 frames per second
+Metro animationMetro = Metro(17); //approx 60 frames per second
 
 
 bool bgmStatus = 1;           //0 = BGM off; 1 = BGM on
@@ -211,7 +226,14 @@ void setup() {
     }
   }
 
- 
+  //Load animations from bmp files
+   
+  loadAnimation("laser11.bmp", laserAnimation, LASER_ANIMATION_HEIGHT, LASER_ANIMATION_WIDTH);
+  printAnimation(laserAnimation, LASER_ANIMATION_HEIGHT, LASER_ANIMATION_WIDTH);
+  
+  loadAnimation("torpedo3.bmp", torpedoAnimation, TORPEDO_ANIMATION_HEIGHT, TORPEDO_ANIMATION_WIDTH);
+  printAnimation(torpedoAnimation, TORPEDO_ANIMATION_HEIGHT, TORPEDO_ANIMATION_WIDTH);
+
   //seed random function
   randomSeed(analogRead(0));
 
@@ -335,6 +357,12 @@ void loop() {
 #endif
     }
 
+  bool rLaser = animateLaser();
+  bool rTorpedo = animateTorpedo();
+  if (!rLaser && !rTorpedo) { 
+    fill_solid(laserLEDS, LASER_NUM_LEDS, CRGB(0,0,0));
+  }
+  
     FastLED.show();
   } //end animationMetro Check
    
@@ -435,7 +463,8 @@ void actionTorpedo() {
   queueWAV( CHANNEL_WEAPON, fn);
 
   //torpedo LED animation
-
+  laserFrame=9999;
+  torpedoFrame=0;
 }
 
 void actionLaser() {
@@ -450,6 +479,9 @@ void actionLaser() {
   String fn = "LASER";
   fn = fn + random (1, NUM_LASER_WAVS + 1) + ".WAV";
   queueWAV( CHANNEL_WEAPON, fn);
+  torpedoFrame=9999;
+  laserFrame=0;
+  
     
 }
 
@@ -558,3 +590,199 @@ void playWAV (int channel, String fn) {
   //delay(10);
 
 } //end playWAV
+
+
+bool animateLaser() {
+  if (laserFrame < LASER_ANIMATION_HEIGHT) {
+
+#if DEBUG_ANIMATION
+  Serial.print("Laser Animation Row:");
+  Serial.print(laserFrame);
+  Serial.print("-");  
+  Serial.print(millis());
+  
+#endif
+     
+    for (int col=0; col < LASER_NUM_LEDS; col++) {
+      int base = (laserFrame*LASER_NUM_LEDS*3) + (col*3);
+      int b = laserAnimation[base];
+      int g = laserAnimation[base + 1 ];
+      int r = laserAnimation[base + 2 ];
+#if DEBUG_ANIMATION
+      Serial.print("{");
+      Serial.print(col);
+      Serial.print(":");
+      Serial.print(base);      
+      Serial.print(":");
+      Serial.print(r);
+      Serial.print(",");
+      Serial.print(g);
+      Serial.print(",");
+      Serial.print(b);
+      Serial.print("}");
+#endif              
+      laserLEDS[col] = CRGB(r,g,b);    
+    }
+#if DEBUG_ANIMATION 
+      Serial.println("");
+#endif 
+    laserFrame++;
+    return true;
+  } 
+  else return false;
+  //else fill_solid(laserLEDS, LASER_NUM_LEDS, CRGB(0,0,0));
+  
+}
+
+
+bool animateTorpedo() {
+  if (torpedoFrame < TORPEDO_ANIMATION_HEIGHT) {
+
+#if DEBUG_ANIMATION
+  Serial.print("Torpedo Animation Row:");
+  Serial.print(torpedoFrame);
+  Serial.print("-");  
+  Serial.print(millis());
+  
+#endif
+    
+    for (int col=0; col < LASER_NUM_LEDS; col++) {
+      int base = (torpedoFrame*LASER_NUM_LEDS*3) + (col*3);
+      //int r = torpedo2.pixel_data[base + 0];
+      //int g = torpedo2.pixel_data[base + 1];
+      //int b = torpedo2.pixel_data[base + 2];
+
+      //bitmap dataorder
+      int b = torpedoAnimation[base];
+      int g = torpedoAnimation[base + 1];
+      int r = torpedoAnimation[base + 2];
+      
+#if DEBUG_ANIMATION
+      Serial.print("{");
+      Serial.print(col);
+      Serial.print(":");
+      Serial.print(base);      
+      Serial.print(":");
+      Serial.print(r);
+      Serial.print(",");
+      Serial.print(g);
+      Serial.print(",");
+      Serial.print(b);
+      Serial.print("}");
+#endif              
+      laserLEDS[col] = CRGB(r,g,b);    
+    }
+#if DEBUG_ANIMATION 
+      Serial.println("");
+#endif 
+  torpedoFrame++;
+  return true;
+  } 
+  else return false;
+  //else fill_solid(laserLEDS, LASER_NUM_LEDS, CRGB(0,0,0));
+}
+
+void loadAnimation (const char *fn, byte ani[], int aniHeight, int aniWidth) { 
+    // Open
+    File bmpImage = SD.open(fn, FILE_READ);
+    //File textFile = SD.open("test.txt", FILE_WRITE);
+
+    int32_t dataStartingOffset = readNbytesInt(&bmpImage, 0x0A, 4);
+
+    // Change their types to int32_t (4byte)
+    int32_t width = readNbytesInt(&bmpImage, 0x12, 4);
+    int32_t height = readNbytesInt(&bmpImage, 0x16, 4);
+    Serial.println(width);
+    Serial.println(height);
+
+    if (width > aniWidth) Serial.print ("Warning BMP is wider than Array!");
+    if (height > aniHeight) Serial.print ("Warning BMP is taller than Array!");
+    if (width < aniWidth) Serial.print ("Warning BMP is narrower than Array!");
+    if (height < aniHeight) Serial.print ("Warning BMP is shorter than Array!");
+    
+    
+
+    int16_t pixelsize = readNbytesInt(&bmpImage, 0x1C, 2);
+
+    if (pixelsize != 24)
+    {
+        Serial.println("Image is not 24 bpp");
+        while (1);
+    }
+
+    bmpImage.seek(dataStartingOffset);//skip bitmap header
+
+    // 24bpp means you have three bytes per pixel, usually B G R
+
+    byte R, G, B;
+
+    for(int32_t i = 0; i < height; i ++) {
+        for (int32_t j = 0; j < width; j ++) {
+            B = bmpImage.read();
+            G = bmpImage.read();
+            R = bmpImage.read();
+
+            int base = (aniHeight-1-i) * aniWidth * 3 + (j*3); //invert
+            
+            if ((i < aniHeight) && (j < aniWidth)) {
+              ani[base] = B;
+              ani[base+1] = G;
+              ani[base+2] = R;
+            }
+            
+ /*
+            Serial.print("R");
+            Serial.print(R);
+            Serial.print("G");
+            Serial.print(G);
+            Serial.print("B");
+            Serial.print(B);
+            Serial.print(" ");
+ */
+            if ( R || G || B ) Serial.print("*");
+              else Serial.print(" ");
+        }
+        Serial.print("\n");
+    }
+
+    bmpImage.close();
+    //textFile.close();
+
+    Serial.print("Finished reading bmp: ");
+    Serial.println(fn);
+     
+}
+
+void printAnimation (byte ani[], int aniHeight, int aniWidth) {
+    for(int32_t i = 0; i < aniHeight; i ++) {
+        for (int32_t j = 0; j < aniWidth; j ++) {
+            int base = (i * aniWidth * 3) + (j*3);
+            
+            int B = ani[base];
+            int G = ani[base + 1];
+            int R = ani[base + 2];
+
+            if ( R || G || B ) Serial.print("*");
+              else Serial.print(" ");
+ 
+            }
+        Serial.print("\n");
+    }
+}
+
+int32_t readNbytesInt(File *p_file, int position, byte nBytes)
+{
+    if (nBytes > 4)
+        return 0;
+
+    p_file->seek(position);
+
+    int32_t weight = 1;
+    int32_t result = 0;
+    for (; nBytes; nBytes--)
+    {
+        result += weight * p_file->read();
+        weight <<= 8;
+    }
+    return result;
+}
