@@ -354,16 +354,23 @@ void loop() {
 void processAction (int action, int src, int key, int data) {
   switch (action) {
    
-      case ACTION_TORPEDO:            actionTorpedo(); break;
-      case ACTION_LASER:              actionLaser();   break;
-      case ACTION_KYLO:               actionKylo(data);    break;
-      case ACTION_ENGINE:             actionEngine(data);  break;
-      case ACTION_BGM_TOGGLE:         actionBGMToggle(); break;
+      case ACTION_TORPEDO:            actionTorpedo(data); break;
+      case ACTION_LASER:              actionLaser(data);   break;
+      case ACTION_KYLO:               
+                                      if (data >= BUTTON_HOLD_DURATION) actionJarJar(data); 
+                                      else actionKylo(data);
+                                      break;
+                                      
+      case ACTION_ENGINE:             if (data >= BUTTON_HOLD_DURATION) actionEngineToggle(data);  
+                                      else actionEngine(data);
+                                      break;
+                                      
+      case ACTION_BGM_TOGGLE:         actionBGMToggle(data); break;
    
   }
 }
 
-void actionTorpedo() {
+void actionTorpedo(int holdDuration) {
 #if DEBUG_ACTION
   Serial.println("Torpedo away!");
 #endif
@@ -378,7 +385,7 @@ void actionTorpedo() {
   torpedoFrame=0;
 }
 
-void actionLaser() {
+void actionLaser(int holdDuration) {
 #if DEBUG_ACTION
   Serial.println("Fire the LAZORS!");
 #endif
@@ -391,44 +398,55 @@ void actionLaser() {
   fn = fn + random (1, NUM_LASER_WAVS + 1) + ".WAV";
   queueWAV( CHANNEL_WEAPON, fn);
   torpedoFrame=9999;
-  laserFrame=0;
-  
+  laserFrame=0; 
 }
 
-void actionKylo(int data) {
+void actionKylo(int holdDuration) {
 #if DEBUG_ACTION
   Serial.println("Kylo was here!");
 #endif
-  if (data > BUTTON_HOLD_DURATION) {
-    queueWAV( CHANNEL_SPEECH, "JARJAR.WAV");
-    }
-  else {
+
     //play random KYLO#.WAV
     String fn = "KYLO";
     fn = fn + random (1, NUM_KYLO_WAVS + 1) + ".WAV";
     queueWAV( CHANNEL_SPEECH, fn);
-    }  
-  
 }
 
-void actionEngine(int data) {
+void actionJarJar (int holdDuration) {
+ #if DEBUG_ACTION
+  Serial.println("EXQUEEEZE ME!");
+#endif 
+
+  queueWAV( CHANNEL_SPEECH, "JARJAR.WAV");
+}
+
+void actionEngine(int holdDuration) {
 #if DEBUG_ACTION
   Serial.println("There is no sound in space, but let's make some anyway!");
 #endif
 
-  if (data > BUTTON_HOLD_DURATION) {
+  queueWAV(CHANNEL_ENGINE, "ENGINE2.WAV");
+
+}
+
+/*
+ * actionEngineToggle() is used to toggle the status of Engine constant sound
+ * and will stop if the status is now off
+ * Note that there is a metro that watches for Engine sound to finish and restarts, 
+ * so we will let that metro start the sound once we change the status
+ * 
+ */
+void actionEngineToggle (int holdDuration) {
     engineStatus = !engineStatus;
+
 #if DEBUG_AUDIO
-    Serial.printf("Engine status = %s \n", engineStatus?"ON":"OFF"); 
+  Serial.print("Engine status = %s", engineStatus?"ON":"OFF");
+  Serial.println(bgmStatus);
 #endif
 
-    if (!engineStatus) channels[CHANNEL_ENGINE]->stop();
-    }
-  else {
-  //engine lighting animation
-  queueWAV(CHANNEL_ENGINE, "ENGINE2.WAV");
-  }
+  if (!engineStatus) channels[CHANNEL_ENGINE]->stop();
 }
+
 
 /*
  * actionBGMToggle() is used to toggle the status of Background Music
@@ -437,7 +455,7 @@ void actionEngine(int data) {
  * so we will let that metro start the music once we change the status
  * 
  */
-void actionBGMToggle() {
+void actionBGMToggle(int holdDuration) {
 
   bgmStatus = !bgmStatus;
 
