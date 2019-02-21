@@ -7,7 +7,7 @@
 
 #define DEBUG_INPUT  0  //input functions will Serial.print if 1
 #define DEBUG_AUDIO  0  //audio functions will Serial.print if 1
-#define DEBUG_ACTION 1  //action functions will Serial.print if 1
+#define DEBUG_ACTION 0  //action functions will Serial.print if 1
 #define DEBUG_PEAK   0  //Peak Audio functions will Serial.print if 1
 #define DEBUG_ANIMATION   0  //Animation functions will Serial.print if 1
 
@@ -138,7 +138,11 @@ CRGB engineLEDS[ENGINE_NUM_LEDS];
 #define COCKPIT_DATA_PIN 26
 CRGB cockpitLEDS[COCKPIT_NUM_LEDS]; 
 
-#define DEFAULT_BRIGHTNESS 96
+//WARNING - ADJUSTING THIS SETTING COULD LEAD TO 
+//EXCESS CURRENT DRAW AND POSSIBLE SYSTEM DAMAGE
+#define DEFAULT_BRIGHTNESS 96 //WARNING!!!!!!!!!
+//DON'T DO IT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 
 //Show & Mode Globals
 
@@ -229,13 +233,13 @@ void setup() {
   //Load animations from BMP files
 
   //load laser animation
-  loadAnimation("LASER.BMP", laserAnimation, LASER_ANIMATION_HEIGHT, LASER_ANIMATION_WIDTH);
+  loadAnimationBMP("LASER.BMP", laserAnimation, LASER_ANIMATION_HEIGHT, LASER_ANIMATION_WIDTH);
  #if DEBUG_ANIMATION 
   printAnimation(laserAnimation, LASER_ANIMATION_HEIGHT, LASER_ANIMATION_WIDTH);
  #endif 
 
   //load torpedo animation
-  loadAnimation("TORPEDO.BMP", torpedoAnimation, TORPEDO_ANIMATION_HEIGHT, TORPEDO_ANIMATION_WIDTH);
+  loadAnimationBMP("TORPEDO.BMP", torpedoAnimation, TORPEDO_ANIMATION_HEIGHT, TORPEDO_ANIMATION_WIDTH);
 #if DEBUG_ANIMATION 
   printAnimation(torpedoAnimation, TORPEDO_ANIMATION_HEIGHT, TORPEDO_ANIMATION_WIDTH);
 #endif
@@ -272,6 +276,8 @@ void setup() {
   Serial.println(DEBUG_AUDIO);
   Serial.print("DEBUG_PEAK = ");
   Serial.println(DEBUG_PEAK);
+  Serial.print("DEBUG_ANIMATION = ");
+  Serial.println(DEBUG_ANIMATION);
   
   //set relative volumes by channel
   mixer1.gain(0, LEVEL_CHANNEL0);
@@ -330,7 +336,7 @@ void loop() {
       
    } //end bgmMetro check
 
-  if (playQueueMetro.check() == 1) { // check if the metro has passed its interval
+  if (playQueueMetro.check() == 1) { // check if theb metro has passed its interval
     for (int q = 0; q < NUM_CHANNELS; q++) {
       String fn = playQueue[q];
       if (fn.length() >0) {
@@ -363,10 +369,13 @@ void loop() {
 #endif
     }
 
-  bool rLaser = animateLaser();
-  bool rTorpedo = animateTorpedo();
+//bool animate(int frame, int lastFrame, byte ani[], int numLEDs, CRGB leds[]) {
+
+ 
+  bool rLaser = animate(&laserFrame, LASER_ANIMATION_HEIGHT, laserAnimation, LASER_NUM_LEDS, laserLEDS);
+  bool rTorpedo = animate(&torpedoFrame, TORPEDO_ANIMATION_HEIGHT, torpedoAnimation, LASER_NUM_LEDS, laserLEDS);
   if (!rLaser && !rTorpedo) { 
-    fill_solid(laserLEDS, LASER_NUM_LEDS, CRGB(0,0,0));
+    fill_solid(laserLEDS, LASER_NUM_LEDS, CRGB(0,0,0)); 
   }
   
     FastLED.show();
@@ -374,77 +383,7 @@ void loop() {
    
 }
 
-void updateButtons() {
-    for (int btn = 0; btn< NUM_BUTTONS; btn++) {
-      buttons[btn].update();
-      if (buttons[btn].fallingEdge()){
-#if DEBUG_INPUT
-        Serial.print("buttonDown: "); Serial.println(btn);
-#endif
-        buttonDuration[btn] = millis();
-        //moved the action to button release 
-        //mapAction(SOURCE_BUTTON, btn, 0);
-      }
 
-      //if buttonDuration is zero, ignore since this is a button read on startup
-      if (buttons[btn].risingEdge() && buttonDuration[btn]){
-
-        unsigned long duration = millis() - buttonDuration[btn];
-#if DEBUG_INPUT
-        Serial.print("buttonUp: "); 
-        Serial.print(btn);
-        Serial.print("; Duration = "); 
-        Serial.println(duration);
-#endif
-        mapAction(SOURCE_BUTTON, btn, duration);
-        }
-        
-    }//end for
-}
-
-void OnPress(int key)
-{
-#if DEBUG_INPUT
-  Serial.print("Pressed key: "); Serial.println(key);
-#endif
-  //mapAction(SOURCE_KEY, key, 0);
-  keyHeld = key;
-  keyHeldDuration = millis();   
-}
-
-void OnRelease(int key)
-{
-#if DEBUG_INPUT
-  Serial.print("Released key: "); Serial.println(key);
-#endif
-
-  unsigned long duration = 0;
-  
-  if (keyHeld == key) {
-    duration = millis() - keyHeldDuration;
-  }
-  
-#if DEBUG_INPUT
-        Serial.print("KeyUp: "); 
-        Serial.print(key);
-        Serial.print("; Duration = "); 
-        Serial.println(duration);
-#endif
-  mapAction(SOURCE_KEY, key, duration);   
-}
-
-/* 
- *  ACTION CODE
- *  
- */
-
-void mapAction(int src, int key, int data) {
-  for (int s = 0; s< ACTION_MAP_SIZE; s++) {
-    if (ActionMap[s][0] == src && ActionMap[s][1] == key) {
-      processAction(ActionMap[s][2], src, key, data);     
-    } //end if
-  } //end for
-}
 
 void processAction (int action, int src, int key, int data) {
   switch (action) {
@@ -550,11 +489,17 @@ void actionBGMToggle() {
 }
 
 /*
+ * HELPER FUNCTIONS
+ * There should not be any code specific to this build below
+ * 
+ */
+
+/*
  * Audio Playback 
  * queueWAV() - this is needed because we can't start audio files
- * during the USB interrupt that generates key messages
- * We add the file to a channel queue (currently only one deep)
- * and there is a queue metro that will check for it and play it
+ *              during the USB interrupt that generates key messages
+ *              We add the file to a channel queue (currently only one deep)
+ *              and there is a queue metro that will check for it and play it
  * 
  */
 
@@ -572,22 +517,18 @@ void queueWAV (int channel, String fn) {
   }
 }
 
-
 /*
  * Audio Playback
- * playFile - this plays a specific wav file
- * there is a "debounce" on this to prevent locking behavior
- * DO NOT CALL THIS FROM WITHIN A USB EVENT HANDLER, USE queueWAV instead!
+ * playWAV() - this plays a specific wav file from SD card
+ *             DO NOT CALL THIS FROM WITHIN A USB EVENT HANDLER, 
+ *             USE queueWAV instead!
  */
 
 void playWAV (int channel, String fn) {
 
 #if DEBUG_AUDIO
-  Serial.print ("playWAV(");
-  Serial.print (channel);
-  Serial.print (",");
-  Serial.print (fn);
-  Serial.println (")");  
+  Serial.print ("playWAV("); Serial.print (channel);
+  Serial.print (","); Serial.print (fn); Serial.println (")");  
 #endif
 
   channels[channel]->play(fn.c_str());
@@ -599,104 +540,53 @@ void playWAV (int channel, String fn) {
 
 
 /*
- * animation improvements
- *  - generic animation function
- *  - starting / stopping animation (don't like the frame 9999)
+ * Animation
+ * animate() - this function places an animation frame into an LED array
+ *           note that we pass a pointer to the frame variable
+ *           so that we can increment it inside the function if
+ *           we are still within the animation
  *  
  */
 
-bool animateLaser() {
-  if (laserFrame < LASER_ANIMATION_HEIGHT) {
+bool animate(int *frame, int lastFrame, byte ani[], int numLEDS, CRGB leds[]) {
+  if (*frame < lastFrame) {
 
 #if DEBUG_ANIMATION
-  Serial.print("Laser Animation Row:");
-  Serial.print(laserFrame);
+  Serial.print("Animation Row:");
+  Serial.print(*frame);
   Serial.print("-");  
   Serial.print(millis());
   
 #endif
      
-    for (int col=0; col < LASER_NUM_LEDS; col++) {
-      int base = (laserFrame*LASER_NUM_LEDS*3) + (col*3);
-      int b = laserAnimation[base];
-      int g = laserAnimation[base + 1 ];
-      int r = laserAnimation[base + 2 ];
+    for (int col=0; col < numLEDS; col++) {
+      int base = (*frame*numLEDS*3) + (col*3);
+      int b = ani[base];
+      int g = ani[base + 1 ];
+      int r = ani[base + 2 ];
 #if DEBUG_ANIMATION
-      Serial.print("{");
-      Serial.print(col);
-      Serial.print(":");
-      Serial.print(base);      
-      Serial.print(":");
-      Serial.print(r);
-      Serial.print(",");
-      Serial.print(g);
-      Serial.print(",");
-      Serial.print(b);
-      Serial.print("}");
+      Serial.print("{"); Serial.print(col); Serial.print(":"); Serial.print(base);      
+      Serial.print(":"); Serial.print(r);   Serial.print(","); Serial.print(g); 
+      Serial.print(","); Serial.print(b);   Serial.print("}");
 #endif              
-      laserLEDS[col] = CRGB(r,g,b);    
+      leds[col] = CRGB(r,g,b);    
     }
 #if DEBUG_ANIMATION 
       Serial.println("");
 #endif 
-    laserFrame++;
-    return true;
+    (*frame)++;
+    return true;     //we updated the LED array
   } 
-  else return false;
-  //else fill_solid(laserLEDS, LASER_NUM_LEDS, CRGB(0,0,0));
-  
+  else return false; //we did not update the LED array 
 }
 
-
-
-bool animateTorpedo() {
-  if (torpedoFrame < TORPEDO_ANIMATION_HEIGHT) {
-
-#if DEBUG_ANIMATION
-  Serial.print("Torpedo Animation Row:");
-  Serial.print(torpedoFrame);
-  Serial.print("-");  
-  Serial.print(millis());
-  
-#endif
-    
-    for (int col=0; col < LASER_NUM_LEDS; col++) {
-      int base = (torpedoFrame*LASER_NUM_LEDS*3) + (col*3);
-      //int r = torpedo2.pixel_data[base + 0];
-      //int g = torpedo2.pixel_data[base + 1];
-      //int b = torpedo2.pixel_data[base + 2];
-
-      //bitmap dataorder
-      int b = torpedoAnimation[base];
-      int g = torpedoAnimation[base + 1];
-      int r = torpedoAnimation[base + 2];
-      
-#if DEBUG_ANIMATION
-      Serial.print("{");
-      Serial.print(col);
-      Serial.print(":");
-      Serial.print(base);      
-      Serial.print(":");
-      Serial.print(r);
-      Serial.print(",");
-      Serial.print(g);
-      Serial.print(",");
-      Serial.print(b);
-      Serial.print("}");
-#endif              
-      laserLEDS[col] = CRGB(r,g,b);    
-    }
-#if DEBUG_ANIMATION 
-      Serial.println("");
-#endif 
-  torpedoFrame++;
-  return true;
-  } 
-  else return false;
-  //else fill_solid(laserLEDS, LASER_NUM_LEDS, CRGB(0,0,0));
-}
-
-void loadAnimation (const char *fn, byte ani[], int aniHeight, int aniWidth) { 
+/*
+ * Animation
+ * loadAnimationBMP() - this function loads a BMP animation file from SD Card 
+ *                      into an animation array 
+ * 
+ */
+void loadAnimationBMP (const char *fn, byte ani[], int aniHeight, int aniWidth) { 
     Serial.print("Loading BMP: ");
     Serial.println(fn);
     
@@ -774,6 +664,35 @@ void loadAnimation (const char *fn, byte ani[], int aniHeight, int aniWidth) {
      
 }
 
+/*
+ * Animation
+ * readNbytesInt - this function is used by loadAnimationBMP
+ * 
+ */
+int32_t readNbytesInt(File *p_file, int position, byte nBytes)
+{
+    if (nBytes > 4)
+        return 0;
+
+    p_file->seek(position);
+
+    int32_t weight = 1;
+    int32_t result = 0;
+    for (; nBytes; nBytes--)
+    {
+        result += weight * p_file->read();
+        weight <<= 8;
+    }
+    return result;
+}
+
+/*
+ * Animation
+ * printAnimation() - this function prints a representation of an animation
+ *                    array to the serial output
+ *                    
+ */
+
 void printAnimation (byte ani[], int aniHeight, int aniWidth) {
     for(int32_t i = 0; i < aniHeight; i ++) {
         for (int32_t j = 0; j < aniWidth; j ++) {
@@ -791,19 +710,92 @@ void printAnimation (byte ani[], int aniHeight, int aniWidth) {
     }
 }
 
-int32_t readNbytesInt(File *p_file, int position, byte nBytes)
+/*
+ * Input
+ * updateButtons() - This function reads each of the buttons 
+ *                   and calls mapAction with the button info
+ *                   
+ */
+void updateButtons() {
+    for (int btn = 0; btn< NUM_BUTTONS; btn++) {
+      buttons[btn].update();
+      if (buttons[btn].fallingEdge()){
+#if DEBUG_INPUT
+        Serial.print("buttonDown: "); Serial.println(btn);
+#endif
+        buttonDuration[btn] = millis();
+        //moved the action to button release 
+        //mapAction(SOURCE_BUTTON, btn, 0);
+      }
+
+      //if buttonDuration is zero, ignore since this is a button read on startup
+      if (buttons[btn].risingEdge() && buttonDuration[btn]){
+
+        unsigned long duration = millis() - buttonDuration[btn];
+#if DEBUG_INPUT
+        Serial.print("buttonUp: "); 
+        Serial.print(btn);
+        Serial.print("; Duration = "); 
+        Serial.println(duration);
+#endif
+        mapAction(SOURCE_BUTTON, btn, duration);
+        }
+        
+    }//end for
+}
+
+/*
+ * Input
+ * onPress() - this function is called by the USB Host HID event when a key is pressed
+ * 
+ */
+void OnPress(int key)
 {
-    if (nBytes > 4)
-        return 0;
+#if DEBUG_INPUT
+  Serial.print("Pressed key: "); Serial.println(key);
+#endif
+  //mapAction(SOURCE_KEY, key, 0);
+  keyHeld = key;
+  keyHeldDuration = millis();   
+}
 
-    p_file->seek(position);
+/*
+ * Input
+ * onRelease() - this function is called by the USB Host HID event when a key is released
+ * 
+ */
+void OnRelease(int key)
+{
+#if DEBUG_INPUT
+  Serial.print("Released key: "); Serial.println(key);
+#endif
 
-    int32_t weight = 1;
-    int32_t result = 0;
-    for (; nBytes; nBytes--)
-    {
-        result += weight * p_file->read();
-        weight <<= 8;
-    }
-    return result;
+  unsigned long duration = 0;
+  
+  if (keyHeld == key) {
+    duration = millis() - keyHeldDuration;
+  }
+  
+#if DEBUG_INPUT
+        Serial.print("KeyUp: "); 
+        Serial.print(key);
+        Serial.print("; Duration = "); 
+        Serial.println(duration);
+#endif
+  mapAction(SOURCE_KEY, key, duration);   
+}
+
+/* 
+ *  Action
+ *  mapAction() - this function maps a key, note, button, etc to an action
+ *                and then calls the function for that action
+ *  
+ */
+
+void mapAction(int src, int key, int data) {
+  for (int s = 0; s< ACTION_MAP_SIZE; s++) {
+    if (ActionMap[s][0] == src && ActionMap[s][1] == key) {
+      processAction(ActionMap[s][2], src, key, data);     
+    } //end if
+  } //end for
 }
