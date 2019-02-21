@@ -99,20 +99,16 @@ String playQueue[NUM_CHANNELS];
 
 AudioAnalyzePeak  *peakAnalyzers[NUM_CHANNELS] = { &peak1, &peak2, &peak3 };
 
-
-
 #define NUM_BGM_WAVS        6  //plays random file //set to 3 for KYLO specific
 #define NUM_LASER_WAVS      7  //plays random file
 #define NUM_TORPEDO_WAVS    4  //plays random file
 #define NUM_ENGINE_WAVS     2  //plays 0 all the time, then 1 when button pressed
 #define NUM_KYLO_WAVS       9  //plays random
 
-
 //LED ALL THE THINGS!
 #include <WS2812Serial.h>
 #define USE_WS2812SERIAL
 #include <FastLED.h>
-
 
 #define LASER_NUM_LEDS 16         //will be 16 
 #define LASER_DATA_PIN 32
@@ -127,7 +123,6 @@ byte laserAnimation[LASER_ANIMATION_HEIGHT * LASER_ANIMATION_WIDTH * 3];
 #define TORPEDO_ANIMATION_HEIGHT 72
 #define TORPEDO_ANIMATION_WIDTH  16
 byte torpedoAnimation[TORPEDO_ANIMATION_HEIGHT * TORPEDO_ANIMATION_WIDTH * 3];
-
 
 #define ENGINE_NUM_LEDS 20 
 #define ENGINE_DATA_PIN 33
@@ -158,7 +153,6 @@ USBHost myusb;
 USBHub hub1(myusb);
 KeyboardController keyboard1(myusb);
 
-
 // this is for wav file playback to reduce locking
 unsigned long lastPlayStart = 0;
 
@@ -180,8 +174,6 @@ unsigned long lastPlayStart = 0;
 
 #define ACTION_PLAY_WAV               10
 #define ACTION_PLAY_WAV_RND           11
-
-
 
 
 /*
@@ -206,8 +198,6 @@ int ActionMap[][3] = {
   {SOURCE_BUTTON, 3, ACTION_ENGINE},             //red button
    
 }; //if you change this, don't forget to update the ACTION_MAP_SIZE
-
-
 
 void setup() {
   Serial.begin(115200);
@@ -362,8 +352,6 @@ void loop() {
    
 }
 
-
-
 void processAction (int action, int src, int key, int data) {
   switch (action) {
    
@@ -406,7 +394,6 @@ void actionLaser() {
   torpedoFrame=9999;
   laserFrame=0;
   
-    
 }
 
 void actionKylo(int data) {
@@ -433,8 +420,7 @@ void actionEngine(int data) {
   if (data > BUTTON_HOLD_DURATION) {
     engineStatus = !engineStatus;
 #if DEBUG_AUDIO
-    Serial.print("Engine  status = ");
-    Serial.println(engineStatus);
+    Serial.printf("Engine status = %s \n", engineStatus?"ON":"OFF"); 
 #endif
 
     if (!engineStatus) channels[CHANNEL_ENGINE]->stop();
@@ -485,11 +471,7 @@ void queueWAV (int channel, String fn) {
   if (channel < NUM_CHANNELS) {
     playQueue[channel] = fn;
 #if DEBUG_AUDIO
-    Serial.print ("queueWAV(");
-    Serial.print (channel);
-    Serial.print (",");
-    Serial.print (fn);
-    Serial.println (");");   
+    Serial.printf ("queueWAV(%i, %s)\n", channel, fn.c_str());
 #endif 
   
   }
@@ -505,7 +487,7 @@ void queueWAV (int channel, String fn) {
 void playWAV (int channel, String fn) {
 
 #if DEBUG_AUDIO
-  Serial.printf("playWAV(%i, %s)\n", channel, fn);
+  Serial.printf("playWAV(%i, %s)\n", channel, fn.c_str());
 #endif
 
   channels[channel]->play(fn.c_str());
