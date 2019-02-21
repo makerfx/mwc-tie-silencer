@@ -5,12 +5,11 @@
 // IMPORTANT NOTE: WAV 44100 STEREO 16BIT
 
 
-#define DEBUG_INPUT  0  //input functions will Serial.print if 1
-#define DEBUG_AUDIO  0  //audio functions will Serial.print if 1
-#define DEBUG_ACTION 0  //action functions will Serial.print if 1
-#define DEBUG_PEAK   0  //Peak Audio functions will Serial.print if 1
+#define DEBUG_INPUT       0  //input functions will Serial.print if 1
+#define DEBUG_AUDIO       0  //audio functions will Serial.print if 1
+#define DEBUG_ACTION      0  //action functions will Serial.print if 1
+#define DEBUG_PEAK        0  //Peak Audio functions will Serial.print if 1
 #define DEBUG_ANIMATION   0  //Animation functions will Serial.print if 1
-
 
 
 /*
@@ -218,67 +217,20 @@ int ActionMap[][3] = {
 
 void setup() {
   Serial.begin(115200);
+  delay(100);
+
+  Serial.println("Setup Started.");
+  Serial.printf("DEBUG_INPUT     = %s \n",   DEBUG_INPUT?"ON":"OFF");
+  Serial.printf("DEBUG_ACTION    = %s \n",   DEBUG_ACTION?"ON":"OFF");
+  Serial.printf("DEBUG_AUDIO     = %s \n",   DEBUG_AUDIO?"ON":"OFF");
+  Serial.printf("DEBUG_PEAK      = %s \n",   DEBUG_PEAK?"ON":"OFF");
+  Serial.printf("DEBUG_ANIMATION = %s \n",   DEBUG_ANIMATION?"ON":"OFF");
+
+  //setup audio system
   AudioMemory(128);
   sgtl5000_1.enable();
   sgtl5000_1.volume(0.4);
-  SPI.setMOSI(SDCARD_MOSI_PIN);
-  SPI.setSCK(SDCARD_SCK_PIN);
-  if (!(SD.begin(SDCARD_CS_PIN))) {
-    while (1) {
-      Serial.println("Unable to access the SD card");
-      delay(500);
-    }
-  }
 
-  //Load animations from BMP files
-
-  //load laser animation
-  loadAnimationBMP("LASER.BMP", laserAnimation, LASER_ANIMATION_HEIGHT, LASER_ANIMATION_WIDTH);
- #if DEBUG_ANIMATION 
-  printAnimation(laserAnimation, LASER_ANIMATION_HEIGHT, LASER_ANIMATION_WIDTH);
- #endif 
-
-  //load torpedo animation
-  loadAnimationBMP("TORPEDO.BMP", torpedoAnimation, TORPEDO_ANIMATION_HEIGHT, TORPEDO_ANIMATION_WIDTH);
-#if DEBUG_ANIMATION 
-  printAnimation(torpedoAnimation, TORPEDO_ANIMATION_HEIGHT, TORPEDO_ANIMATION_WIDTH);
-#endif
-
-  //seed random function
-  randomSeed(analogRead(0));
-
-  for (int btn = 0; btn< NUM_BUTTONS; btn++) {
-    pinMode(buttonPins[btn], INPUT_PULLUP);
-    buttonDuration[btn] = 0; 
-    buttons[btn].update();
-  }
-
-  //Rings like BRG space to be the same as the RGB strip
-  LEDS.addLeds<WS2812SERIAL,  LASER_DATA_PIN,   BRG>(laserLEDS,   LASER_NUM_LEDS);
-  LEDS.addLeds<WS2812SERIAL,  COCKPIT_DATA_PIN, BRG>(cockpitLEDS, COCKPIT_NUM_LEDS); 
-  LEDS.addLeds<WS2812SERIAL,  ENGINE_DATA_PIN,  BRG>(engineLEDS,  ENGINE_NUM_LEDS);
-    
-  LEDS.setBrightness(DEFAULT_BRIGHTNESS);
-
-
-  //set first LED to white at startup to show proper operation
-  FastLED.clear();
-  laserLEDS[0] = CRGB(255,255,255);
-  cockpitLEDS[0] = CRGB(255,255,255);
-  engineLEDS[0] = CRGB(255,255,255);
-  FastLED.show();
-
-  Serial.print("DEBUG_INPUT = ");
-  Serial.println(DEBUG_INPUT);
-  Serial.print("DEBUG_ACTION = ");
-  Serial.println(DEBUG_ACTION);
-  Serial.print("DEBUG_AUDIO = ");
-  Serial.println(DEBUG_AUDIO);
-  Serial.print("DEBUG_PEAK = ");
-  Serial.println(DEBUG_PEAK);
-  Serial.print("DEBUG_ANIMATION = ");
-  Serial.println(DEBUG_ANIMATION);
-  
   //set relative volumes by channel
   mixer1.gain(0, LEVEL_CHANNEL0);
   mixer2.gain(0, LEVEL_CHANNEL0);
@@ -294,9 +246,57 @@ void setup() {
   mixer4.gain(1,.3);
   mixer5.gain(1, 0); //peak3
   mixer5.gain(1, 0);
-  
 
-  //USB Host Setup
+  //setup SD card
+  SPI.setMOSI(SDCARD_MOSI_PIN);
+  SPI.setSCK(SDCARD_SCK_PIN);
+  if (!(SD.begin(SDCARD_CS_PIN))) {
+    while (1) {
+      Serial.println("Unable to access the SD card");
+      delay(500);
+    }
+  }
+
+
+  //load laser animation BMP
+  loadAnimationBMP("LASER.BMP", laserAnimation, LASER_ANIMATION_HEIGHT, LASER_ANIMATION_WIDTH);
+ #if DEBUG_ANIMATION 
+  printAnimation(laserAnimation, LASER_ANIMATION_HEIGHT, LASER_ANIMATION_WIDTH);
+ #endif 
+
+  //load torpedo animation BMP
+  loadAnimationBMP("TORPEDO.BMP", torpedoAnimation, TORPEDO_ANIMATION_HEIGHT, TORPEDO_ANIMATION_WIDTH);
+#if DEBUG_ANIMATION 
+  printAnimation(torpedoAnimation, TORPEDO_ANIMATION_HEIGHT, TORPEDO_ANIMATION_WIDTH);
+#endif
+
+  //seed random function
+  randomSeed(analogRead(0));
+
+  //setup buttons
+  for (int btn = 0; btn< NUM_BUTTONS; btn++) {
+    pinMode(buttonPins[btn], INPUT_PULLUP);
+    buttonDuration[btn] = 0; 
+    buttons[btn].update();
+  }
+
+  //Setup LEDS
+  
+  //Validate the LED color order!
+  LEDS.addLeds<WS2812SERIAL,  LASER_DATA_PIN,   BRG>(laserLEDS,   LASER_NUM_LEDS);
+  LEDS.addLeds<WS2812SERIAL,  COCKPIT_DATA_PIN, BRG>(cockpitLEDS, COCKPIT_NUM_LEDS); 
+  LEDS.addLeds<WS2812SERIAL,  ENGINE_DATA_PIN,  BRG>(engineLEDS,  ENGINE_NUM_LEDS);
+    
+  LEDS.setBrightness(DEFAULT_BRIGHTNESS);
+
+  //set first LED to white at startup to show proper operation
+  FastLED.clear();
+  laserLEDS[0] = CRGB(255,255,255);
+  cockpitLEDS[0] = CRGB(255,255,255);
+  engineLEDS[0] = CRGB(255,255,255);
+  FastLED.show();
+
+  //Setup USB Host
   Serial.println("USB Host Setup");
   myusb.begin();
   keyboard1.attachPress(OnPress);
@@ -352,8 +352,7 @@ void loop() {
     if (peakAnalyzers[CHANNEL_ENGINE]->available()) {
       float peak = peakAnalyzers[CHANNEL_ENGINE]->read();
 #if DEBUG_PEAK 
-      Serial.print("Engine:");
-      Serial.println(peak);
+      Serial.printf("Engine: %i \n", peak);
 #endif
       int peakbrt = map(peak,0,1,0,255);
       fill_solid(engineLEDS, ENGINE_NUM_LEDS, CRGB(peakbrt,0,0));
