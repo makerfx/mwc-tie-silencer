@@ -5,11 +5,11 @@
 // IMPORTANT NOTE: WAV 44100 STEREO 16BIT
 
 
-#define DEBUG_INPUT       0  //input functions will Serial.print if 1
-#define DEBUG_AUDIO       0  //audio functions will Serial.print if 1
-#define DEBUG_ACTION      0  //action functions will Serial.print if 1
+#define DEBUG_INPUT       1  //input functions will Serial.print if 1
+#define DEBUG_AUDIO       1  //audio functions will Serial.print if 1
+#define DEBUG_ACTION      1  //action functions will Serial.print if 1
 #define DEBUG_PEAK        0  //Peak Audio functions will Serial.print if 1
-#define DEBUG_ANIMATION   0  //Animation functions will Serial.print if 1
+#define DEBUG_ANIMATION   1  //Animation functions will Serial.print if 1
 
 
 /*
@@ -344,7 +344,7 @@ void loop() {
     if (peakAnalyzers[CHANNEL_ENGINE]->available()) {
       float peak = peakAnalyzers[CHANNEL_ENGINE]->read();
 #if DEBUG_PEAK 
-      Serial.printf("Engine: %i \n", peak);
+      Serial.printf("Engine Peak: %f \n", peak);
 #endif
       int peakbrt = map(peak,0,1,0,255);
       fill_solid(engineLEDS, ENGINE_NUM_LEDS, CRGB(peakbrt,0,0));
@@ -517,8 +517,7 @@ void queueWAV (int channel, String fn) {
 void playWAV (int channel, String fn) {
 
 #if DEBUG_AUDIO
-  Serial.print ("playWAV("); Serial.print (channel);
-  Serial.print (","); Serial.print (fn); Serial.println (")");  
+  Serial.printf("playWAV(%i, %s)\n", channel, fn);
 #endif
 
   channels[channel]->play(fn.c_str());
@@ -555,9 +554,7 @@ bool animate(int *frame, int lastFrame, byte ani[], int numLEDS, CRGB leds[]) {
       int g = ani[base + 1 ];
       int r = ani[base + 2 ];
 #if DEBUG_ANIMATION
-      Serial.print("{"); Serial.print(col); Serial.print(":"); Serial.print(base);      
-      Serial.print(":"); Serial.print(r);   Serial.print(","); Serial.print(g); 
-      Serial.print(","); Serial.print(b);   Serial.print("}");
+      Serial.printf("{%i:%i:%i,%i,%i}", col, base, r, g, b);
 #endif              
       leds[col] = CRGB(r,g,b);    
     }
@@ -577,28 +574,22 @@ bool animate(int *frame, int lastFrame, byte ani[], int numLEDS, CRGB leds[]) {
  * 
  */
 void loadAnimationBMP (const char *fn, byte ani[], int aniHeight, int aniWidth) { 
-    Serial.print("Loading BMP: ");
-    Serial.println(fn);
+    Serial.printf("Loading BMP: %s \n", fn);
     
     // Open
     File bmpImage = SD.open(fn, FILE_READ);
-    //File textFile = SD.open("test.txt", FILE_WRITE);
-
     int32_t dataStartingOffset = readNbytesInt(&bmpImage, 0x0A, 4);
 
     // Change their types to int32_t (4byte)
     int32_t width = readNbytesInt(&bmpImage, 0x12, 4);
     int32_t height = readNbytesInt(&bmpImage, 0x16, 4);
-    Serial.print("Animation width: "); Serial.println(width);
-    Serial.print("Animation height: "); Serial.println(height);
+    Serial.printf("Animation width: %i, height: %i \n", width, height); 
 
     if (width > aniWidth) Serial.println ("WARNING: BMP is wider than Array!");
     if (height > aniHeight) Serial.println ("WARNING: BMP is taller than Array!");
     if (width < aniWidth) Serial.println ("WARNING: BMP is narrower than Array!");
     if (height < aniHeight) Serial.println ("WARNING: BMP is shorter than Array!");
     
-    
-
     int16_t pixelsize = readNbytesInt(&bmpImage, 0x1C, 2);
 
     if (pixelsize != 24)
@@ -627,15 +618,6 @@ void loadAnimationBMP (const char *fn, byte ani[], int aniHeight, int aniWidth) 
               ani[base+2] = R;
             }
             
- /*
-            Serial.print("R");
-            Serial.print(R);
-            Serial.print("G");
-            Serial.print(G);
-            Serial.print("B");
-            Serial.print(B);
-            Serial.print(" ");
- */
  #if DEBUG_ANIMATION
             if ( R || G || B ) Serial.print("*");
               else Serial.print(" ");
@@ -647,11 +629,8 @@ void loadAnimationBMP (const char *fn, byte ani[], int aniHeight, int aniWidth) 
     }
 
     bmpImage.close();
-    //textFile.close();
 
-    Serial.print("Finished loading BMP: ");
-    Serial.println(fn);
-     
+    Serial.printf("Finished loading BMP: %s \n", fn);     
 }
 
 /*
@@ -711,7 +690,7 @@ void updateButtons() {
       buttons[btn].update();
       if (buttons[btn].fallingEdge()){
 #if DEBUG_INPUT
-        Serial.print("buttonDown: "); Serial.println(btn);
+        Serial.printf("buttonDown: %i \n", btn);
 #endif
         buttonDuration[btn] = millis();
         //moved the action to button release 
@@ -723,10 +702,7 @@ void updateButtons() {
 
         unsigned long duration = millis() - buttonDuration[btn];
 #if DEBUG_INPUT
-        Serial.print("buttonUp: "); 
-        Serial.print(btn);
-        Serial.print("; Duration = "); 
-        Serial.println(duration);
+        Serial.printf("buttonUp: %i; Duration = %i \n", btn, duration); 
 #endif
         mapAction(SOURCE_BUTTON, btn, duration);
         }
@@ -742,7 +718,7 @@ void updateButtons() {
 void OnPress(int key)
 {
 #if DEBUG_INPUT
-  Serial.print("Pressed key: "); Serial.println(key);
+  Serial.printf("Pressed key: %i \n", key);
 #endif
   //mapAction(SOURCE_KEY, key, 0);
   keyHeld = key;
@@ -757,7 +733,7 @@ void OnPress(int key)
 void OnRelease(int key)
 {
 #if DEBUG_INPUT
-  Serial.print("Released key: "); Serial.println(key);
+  Serial.printf("Released key: %i \n", key);
 #endif
 
   unsigned long duration = 0;
@@ -767,10 +743,7 @@ void OnRelease(int key)
   }
   
 #if DEBUG_INPUT
-        Serial.print("KeyUp: "); 
-        Serial.print(key);
-        Serial.print("; Duration = "); 
-        Serial.println(duration);
+  Serial.printf("KeyUp: %i; Duration = %i \n", key, duration); 
 #endif
   mapAction(SOURCE_KEY, key, duration);   
 }
