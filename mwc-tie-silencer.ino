@@ -19,7 +19,7 @@
 #include <Bounce.h>
 
 #define NUM_BUTTONS 4
-int buttonPins[NUM_BUTTONS] = { 0, 1, 2, 3 };
+uint8_t buttonPins[NUM_BUTTONS] = { 0, 1, 2, 3 };
 Bounce buttons[NUM_BUTTONS] = { {buttonPins[0], 250}, {buttonPins[1], 250}, {buttonPins[2], 1000},{buttonPins[3], 1000} };
 unsigned long buttonDuration[NUM_BUTTONS];    //holds the last millis() for a falling edge
 #define BUTTON_HOLD_DURATION 2000
@@ -350,19 +350,7 @@ void loop() {
       fill_solid(engineLEDS, ENGINE_NUM_LEDS, CRGB(peakbrt,0,0));
     }
     else fill_solid(engineLEDS, ENGINE_NUM_LEDS, CRGB(0,0,0));
-    
 
-    if (peakAnalyzers[CHANNEL_SPEECH]->available()) {
-      float peak = peakAnalyzers[CHANNEL_SPEECH]->read();
-#if DEBUG_PEAK 
-      Serial.print("Speech:");
-      Serial.println(peak);
-#endif
-    }
-
-//bool animate(int frame, int lastFrame, byte ani[], int numLEDs, CRGB leds[]) {
-
- 
   bool rLaser = animate(&laserFrame, LASER_ANIMATION_HEIGHT, laserAnimation, LASER_NUM_LEDS, laserLEDS);
   bool rTorpedo = animate(&torpedoFrame, TORPEDO_ANIMATION_HEIGHT, torpedoAnimation, LASER_NUM_LEDS, laserLEDS);
   if (!rLaser && !rTorpedo) { 
