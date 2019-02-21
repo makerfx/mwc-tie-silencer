@@ -133,10 +133,6 @@ byte torpedoAnimation[TORPEDO_ANIMATION_HEIGHT * TORPEDO_ANIMATION_WIDTH * 3];
 #define ENGINE_DATA_PIN 33
 CRGB engineLEDS[ENGINE_NUM_LEDS]; 
 
-#define COCKPIT_NUM_LEDS 10
-#define COCKPIT_DATA_PIN 26
-CRGB cockpitLEDS[COCKPIT_NUM_LEDS]; 
-
 //WARNING - ADJUSTING THIS SETTING COULD LEAD TO 
 //EXCESS CURRENT DRAW AND POSSIBLE SYSTEM DAMAGE
 #define DEFAULT_BRIGHTNESS 96 //WARNING!!!!!!!!!
@@ -174,7 +170,6 @@ unsigned long lastPlayStart = 0;
 #define SOURCE_KEY                    0
 #define SOURCE_BUTTON                 1
 
-
 #define ACTION_DO_NOT_USE             0 //just putting this here as a reminder to not use it :)
 
 #define ACTION_TORPEDO               1
@@ -182,7 +177,6 @@ unsigned long lastPlayStart = 0;
 #define ACTION_KYLO                  3
 #define ACTION_ENGINE                4
 #define ACTION_BGM_TOGGLE            5 //BGM = BACKGROUND MUSIC
-
 
 #define ACTION_PLAY_WAV               10
 #define ACTION_PLAY_WAV_RND           11
@@ -284,7 +278,6 @@ void setup() {
   
   //Validate the LED color order!
   LEDS.addLeds<WS2812SERIAL,  LASER_DATA_PIN,   BRG>(laserLEDS,   LASER_NUM_LEDS);
-  LEDS.addLeds<WS2812SERIAL,  COCKPIT_DATA_PIN, BRG>(cockpitLEDS, COCKPIT_NUM_LEDS); 
   LEDS.addLeds<WS2812SERIAL,  ENGINE_DATA_PIN,  BRG>(engineLEDS,  ENGINE_NUM_LEDS);
     
   LEDS.setBrightness(DEFAULT_BRIGHTNESS);
@@ -292,7 +285,6 @@ void setup() {
   //set first LED to white at startup to show proper operation
   FastLED.clear();
   laserLEDS[0] = CRGB(255,255,255);
-  cockpitLEDS[0] = CRGB(255,255,255);
   engineLEDS[0] = CRGB(255,255,255);
   FastLED.show();
 
@@ -433,7 +425,6 @@ void actionKylo(int data) {
 #if DEBUG_ACTION
   Serial.println("Kylo was here!");
 #endif
-  //cockpit lighting animation?
   if (data > BUTTON_HOLD_DURATION) {
     queueWAV( CHANNEL_SPEECH, "JARJAR.WAV");
     }
