@@ -6,11 +6,10 @@
 
 
 #define DEBUG_INPUT       1  //input functions will Serial.print if 1
-#define DEBUG_AUDIO       1  //audio functions will Serial.print if 1
+#define DEBUG_AUDIO       0  //audio functions will Serial.print if 1
 #define DEBUG_ACTION      1  //action functions will Serial.print if 1
 #define DEBUG_PEAK        0  //Peak Audio functions will Serial.print if 1
-#define DEBUG_ANIMATION   1  //Animation functions will Serial.print if 1
-
+#define DEBUG_ANIMATION   0  //Animation functions will Serial.print if 1
 
 /*
  * Hardware Buttons
