@@ -5,11 +5,16 @@
 // IMPORTANT NOTE: WAV 44100 STEREO 16BIT
 
 
-#define DEBUG_INPUT       1  //input functions will Serial.print if 1
-#define DEBUG_AUDIO       0  //audio functions will Serial.print if 1
-#define DEBUG_ACTION      1  //action functions will Serial.print if 1
-#define DEBUG_PEAK        0  //Peak Audio functions will Serial.print if 1
-#define DEBUG_ANIMATION   0  //Animation functions will Serial.print if 1
+#define DEBUG_INPUT               1  //input functions will Serial.print if 1
+#define DEBUG_AUDIO               0  //audio functions will Serial.print if 1
+#define DEBUG_ACTION              1  //action functions will Serial.print if 1
+#define DEBUG_PEAK                0  //Peak Audio functions will Serial.print if 1
+
+#define DEBUG_ANIMATION           1  //Animation functions will Serial.print if 1
+                                     //THIS MAY SLOW ANIMATION
+#define DEBUG_ANIMATION_RGB       0  //Show Full Animation Frame RGB via Serial.print if 1
+                                     //Does not require DEBUG_ANIMATION to be on
+                                     //THIS MAY SLOW ANIMATION
 
 /*
  * Hardware Buttons
@@ -203,11 +208,12 @@ void setup() {
   delay(100);
 
   Serial.println("Setup Started.");
-  Serial.printf("DEBUG_INPUT     = %s \n",   DEBUG_INPUT?"ON":"OFF");
-  Serial.printf("DEBUG_ACTION    = %s \n",   DEBUG_ACTION?"ON":"OFF");
-  Serial.printf("DEBUG_AUDIO     = %s \n",   DEBUG_AUDIO?"ON":"OFF");
-  Serial.printf("DEBUG_PEAK      = %s \n",   DEBUG_PEAK?"ON":"OFF");
-  Serial.printf("DEBUG_ANIMATION = %s \n",   DEBUG_ANIMATION?"ON":"OFF");
+  Serial.printf("DEBUG_INPUT          = %s \n",   DEBUG_INPUT?"ON":"OFF");
+  Serial.printf("DEBUG_ACTION         = %s \n",   DEBUG_ACTION?"ON":"OFF");
+  Serial.printf("DEBUG_AUDIO          = %s \n",   DEBUG_AUDIO?"ON":"OFF");
+  Serial.printf("DEBUG_PEAK           = %s \n",   DEBUG_PEAK?"ON":"OFF");
+  Serial.printf("DEBUG_ANIMATION      = %s \n",   DEBUG_ANIMATION?"ON":"OFF");
+  Serial.printf("DEBUG_ANIMATION_RGB  = %s \n",   DEBUG_ANIMATION_RGB?"ON":"OFF");
 
   //setup audio system
   AudioMemory(128);
@@ -527,12 +533,11 @@ void playWAV (int channel, String fn) {
 bool animate(int *frame, int lastFrame, byte ani[], int numLEDS, CRGB leds[]) {
   if (*frame < lastFrame) {
 
-#if DEBUG_ANIMATION
+#if DEBUG_ANIMATION_RGB
   Serial.print("Animation Row:");
   Serial.print(*frame);
   Serial.print("-");  
   Serial.print(millis());
-  
 #endif
      
     for (int col=0; col < numLEDS; col++) {
@@ -540,12 +545,17 @@ bool animate(int *frame, int lastFrame, byte ani[], int numLEDS, CRGB leds[]) {
       int b = ani[base];
       int g = ani[base + 1 ];
       int r = ani[base + 2 ];
-#if DEBUG_ANIMATION
+#if DEBUG_ANIMATION_RGB
       Serial.printf("{%i:%i:%i,%i,%i}", col, base, r, g, b);
-#endif              
+#endif  
+
+#if DEBUG_ANIMATION
+      Serial.printf("%s ", (r || g || b)?"*":" ");
+#endif  
+
       leds[col] = CRGB(r,g,b);    
     }
-#if DEBUG_ANIMATION 
+#if DEBUG_ANIMATION || DEBUG_ANIMATION_RGB 
       Serial.println("");
 #endif 
     (*frame)++;
