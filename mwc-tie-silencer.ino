@@ -313,7 +313,7 @@ void loop() {
 
       }
       //check on engine
-      if (engineStatus && !channels[CHANNEL_ENGINE]->isPlaying()) {
+      if (!channels[CHANNEL_ENGINE]->isPlaying()) {
         //We want ENGINE1.WAV (baseline engine) playing whenever ENGINE2.WAV (thrust) is NOT playing
 #if DEBUG_AUDIO
         Serial.println("Starting Background Engine Sound from bgmMetro");
@@ -445,12 +445,18 @@ void actionEngine(int holdDuration) {
 void actionEngineToggle (int holdDuration) {
     engineStatus = !engineStatus;
 
-#if DEBUG_AUDIO
-  Serial.print("Engine status = %s", engineStatus?"ON":"OFF");
-  Serial.println(bgmStatus);
+#if DEBUG_ACTION
+  Serial.printf("Engine status = %s\n", engineStatus?"ON":"OFF");
 #endif
 
-  if (!engineStatus) channels[CHANNEL_ENGINE]->stop();
+  if (engineStatus) {
+      mixer1.gain(CHANNEL_ENGINE, LEVEL_CHANNEL1);
+      mixer2.gain(CHANNEL_ENGINE, LEVEL_CHANNEL1);
+  }
+  else {
+      mixer1.gain(CHANNEL_ENGINE, .1);
+      mixer2.gain(CHANNEL_ENGINE, .1);
+  }
 }
 
 
