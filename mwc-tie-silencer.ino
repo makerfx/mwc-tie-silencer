@@ -411,9 +411,11 @@ void processAction (int action, int src, int key, int data) {
   switch (action) {
    
       case ACTION_TORPEDO:            actionTorpedo(data); break;
-      case ACTION_LASER:              actionLaser(data);   break;
-      case ACTION_KYLO:               
-                                      if (data >= BUTTON_HOLD_DURATION) actionJarJar(data); 
+      case ACTION_LASER:              if (data >= BUTTON_HOLD_DURATION) actionBGMToggle(data);
+                                      else actionLaser(data);   
+                                      break;
+                                                                         
+      case ACTION_KYLO:               if (data >= BUTTON_HOLD_DURATION) actionJarJar(data); 
                                       else actionKylo(data);
                                       break;
                                       
@@ -487,7 +489,7 @@ void actionEngine(int holdDuration) {
 void actionEngineToggle (int holdDuration) {
     engineStatus = !engineStatus;
 
-  if (debugOptions[DEBUG_ACTION]) Serial.printf("Engine status = %s\n", engineStatus?"ON":"OFF");
+  if (debugOptions[DEBUG_ACTION]) Serial.printf("Background Engine status = %s\n", engineStatus?"HIGH":"LOW");
 
   if (engineStatus) {
       mixer1.gain(CHANNEL_ENGINE, LEVEL_CHANNEL1);
@@ -509,7 +511,7 @@ void actionEngineToggle (int holdDuration) {
  */
 void actionBGMToggle(int holdDuration) {
   bgmStatus = !bgmStatus;
-  if (debugOptions[DEBUG_AUDIO]) Serial.printf("Background music status = %s\n", bgmStatus?"ON":"OFF");
+  if (debugOptions[DEBUG_ACTION]) Serial.printf("Background music status = %s\n", bgmStatus?"ON":"OFF");
   if (!bgmStatus) channels[CHANNEL_MUSIC]->stop(); 
 }
 
