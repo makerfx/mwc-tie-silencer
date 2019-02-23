@@ -4,19 +4,26 @@
 // IMPORTANT NOTE: 8.3 FILENAMES FOR WAV AUDIO FILES!
 // IMPORTANT NOTE: WAV 44100 STEREO 16BIT
 
+//you can use the serial input with keys 1-9 to toggle
+//key 0 will turn them all off so we don't use 0 here
 
-#define DEBUG_INPUT               1  //input functions will Serial.print if 1
-#define DEBUG_AUDIO               0  //audio functions will Serial.print if 1
-#define DEBUG_ACTION              1  //action functions will Serial.print if 1
-#define DEBUG_PEAK                0  //Peak Audio functions will Serial.print if 1
+bool debugOptions[10] = {0, 0, 0, 1, 0, 0, 0, 0, 0, 0};   //change default here, helpful for startup debugging
 
-#define DEBUG_ANIMATION           1  //Animation functions will Serial.print if 1
-                                     //THIS MAY SLOW ANIMATION
-#define DEBUG_ANIMATION_RGB       0  //Show Full Animation Frame RGB via Serial.print if 1
+                                                        
+char* debugOptionsText[10] =  {"", "Input","Audio", "Action", "Peak Audio",
+                                "Animation","Animation RGB Dump"};
+                                
+#define DEBUG_INPUT               1  //input functions 
+#define DEBUG_AUDIO               2  //audio functions 
+#define DEBUG_ACTION              3  //action functions 
+#define DEBUG_PEAK                4  //Peak Audio functions 
+#define DEBUG_ANIMATION           5  //Animation functions   //THIS MAY SLOW ANIMATION                            
+#define DEBUG_ANIMATION_RGB       6  //Show Full Animation Frame RGB 
                                      //Does not require DEBUG_ANIMATION to be on
                                      //THIS MAY SLOW ANIMATION
 
-/*
+ 
+ /*
  * Hardware Buttons
  */
  
@@ -208,12 +215,7 @@ void setup() {
   delay(100);
 
   Serial.println("Setup Started.");
-  Serial.printf("DEBUG_INPUT          = %s \n",   DEBUG_INPUT?"ON":"OFF");
-  Serial.printf("DEBUG_ACTION         = %s \n",   DEBUG_ACTION?"ON":"OFF");
-  Serial.printf("DEBUG_AUDIO          = %s \n",   DEBUG_AUDIO?"ON":"OFF");
-  Serial.printf("DEBUG_PEAK           = %s \n",   DEBUG_PEAK?"ON":"OFF");
-  Serial.printf("DEBUG_ANIMATION      = %s \n",   DEBUG_ANIMATION?"ON":"OFF");
-  Serial.printf("DEBUG_ANIMATION_RGB  = %s \n",   DEBUG_ANIMATION_RGB?"ON":"OFF");
+  printDebugOptions();
 
   //setup audio system
   AudioMemory(128);
@@ -249,15 +251,14 @@ void setup() {
 
   //load laser animation BMP
   loadAnimationBMP("LASER.BMP", laserAnimation, LASER_ANIMATION_HEIGHT, LASER_ANIMATION_WIDTH);
- #if DEBUG_ANIMATION 
-  printAnimation(laserAnimation, LASER_ANIMATION_HEIGHT, LASER_ANIMATION_WIDTH);
- #endif 
-
+  if (debugOptions[DEBUG_ANIMATION]) {
+    printAnimation(laserAnimation, LASER_ANIMATION_HEIGHT, LASER_ANIMATION_WIDTH);
+  }
   //load torpedo animation BMP
   loadAnimationBMP("TORPEDO.BMP", torpedoAnimation, TORPEDO_ANIMATION_HEIGHT, TORPEDO_ANIMATION_WIDTH);
-#if DEBUG_ANIMATION 
-  printAnimation(torpedoAnimation, TORPEDO_ANIMATION_HEIGHT, TORPEDO_ANIMATION_WIDTH);
-#endif
+  if (debugOptions[DEBUG_ANIMATION]) { 
+    printAnimation(torpedoAnimation, TORPEDO_ANIMATION_HEIGHT, TORPEDO_ANIMATION_WIDTH);
+  }
 
   //seed random function
   randomSeed(analogRead(0));
@@ -306,18 +307,18 @@ void loop() {
         //play random BACKGND#.WAV
         String fn = "BACKGND";
         fn = fn + random (1, NUM_BGM_WAVS + 1) + ".WAV";
-#if DEBUG_AUDIO
-        Serial.println("Starting Background Music from bgmMetro");
-#endif
+        if (debugOptions[DEBUG_AUDIO]){
+          Serial.println("Starting Background Music from bgmMetro");
+        }
         playWAV( CHANNEL_MUSIC, fn);
 
       }
       //check on engine
       if (!channels[CHANNEL_ENGINE]->isPlaying()) {
         //We want ENGINE1.WAV (baseline engine) playing whenever ENGINE2.WAV (thrust) is NOT playing
-#if DEBUG_AUDIO
+      if (debugOptions[DEBUG_AUDIO]) {
         Serial.println("Starting Background Engine Sound from bgmMetro");
-#endif
+      }
         playWAV(CHANNEL_ENGINE, "ENGINE1.WAV");
       }
       
@@ -338,9 +339,7 @@ void loop() {
     
     if (peakAnalyzers[CHANNEL_ENGINE]->available()) {
       float peak = peakAnalyzers[CHANNEL_ENGINE]->read();
-#if DEBUG_PEAK 
-      Serial.printf("Engine Peak: %f \n", peak);
-#endif
+      if (debugOptions[DEBUG_PEAK]) Serial.printf("Engine Peak: %f \n", peak);
       int peakbrt = map(peak,0,1,0,255);
       fill_solid(engineLEDS, ENGINE_NUM_LEDS, CRGB(peakbrt,0,0));
     }
@@ -354,7 +353,8 @@ void loop() {
   
     FastLED.show();
   } //end animationMetro Check
-   
+
+  debugOptionsCheck();   
 }
 
 void processAction (int action, int src, int key, int data) {
@@ -377,9 +377,7 @@ void processAction (int action, int src, int key, int data) {
 }
 
 void actionTorpedo(int holdDuration) {
-#if DEBUG_ACTION
-  Serial.println("Torpedo away!");
-#endif
+  if (debugOptions[DEBUG_ACTION]) Serial.println("Torpedo away!");
 
   //play random TORPEDO#.WAV
   String fn = "TORPEDO";
@@ -392,10 +390,7 @@ void actionTorpedo(int holdDuration) {
 }
 
 void actionLaser(int holdDuration) {
-#if DEBUG_ACTION
-  Serial.println("Fire the LAZORS!");
-#endif
-
+  if (debugOptions[DEBUG_ACTION]) Serial.println("Fire the LAZORS!");
   //laser sound
   //laser LED animation
 
@@ -408,9 +403,7 @@ void actionLaser(int holdDuration) {
 }
 
 void actionKylo(int holdDuration) {
-#if DEBUG_ACTION
-  Serial.println("Kylo was here!");
-#endif
+  if (debugOptions[DEBUG_ACTION]) Serial.println("Kylo was here!");
 
     //play random KYLO#.WAV
     String fn = "KYLO";
@@ -419,18 +412,13 @@ void actionKylo(int holdDuration) {
 }
 
 void actionJarJar (int holdDuration) {
- #if DEBUG_ACTION
-  Serial.println("EXQUEEEZE ME!");
-#endif 
-
+  if (debugOptions[DEBUG_ACTION]) Serial.println("EXQUEEEZE ME!");
   queueWAV( CHANNEL_SPEECH, "JARJAR.WAV");
 }
 
 void actionEngine(int holdDuration) {
-#if DEBUG_ACTION
-  Serial.println("There is no sound in space, but let's make some anyway!");
-#endif
-
+  if (debugOptions[DEBUG_ACTION]) Serial.println("There is no sound in space, but let's make some anyway!");
+  
   queueWAV(CHANNEL_ENGINE, "ENGINE2.WAV");
 
 }
@@ -445,9 +433,7 @@ void actionEngine(int holdDuration) {
 void actionEngineToggle (int holdDuration) {
     engineStatus = !engineStatus;
 
-#if DEBUG_ACTION
-  Serial.printf("Engine status = %s\n", engineStatus?"ON":"OFF");
-#endif
+  if (debugOptions[DEBUG_ACTION]) Serial.printf("Engine status = %s\n", engineStatus?"ON":"OFF");
 
   if (engineStatus) {
       mixer1.gain(CHANNEL_ENGINE, LEVEL_CHANNEL1);
@@ -468,17 +454,9 @@ void actionEngineToggle (int holdDuration) {
  * 
  */
 void actionBGMToggle(int holdDuration) {
-
   bgmStatus = !bgmStatus;
-
-#if DEBUG_AUDIO
-  Serial.print("Background music status = ");
-  Serial.println(bgmStatus);
-#endif
-
-  if (!bgmStatus) channels[CHANNEL_MUSIC]->stop();
- 
-  
+  if (debugOptions[DEBUG_AUDIO]) Serial.printf("Background music status = %s\n", bgmStatus?"ON":"OFF");
+  if (!bgmStatus) channels[CHANNEL_MUSIC]->stop(); 
 }
 
 /*
@@ -499,9 +477,7 @@ void actionBGMToggle(int holdDuration) {
 void queueWAV (int channel, String fn) {
   if (channel < NUM_CHANNELS) {
     playQueue[channel] = fn;
-#if DEBUG_AUDIO
-    Serial.printf ("queueWAV(%i, %s)\n", channel, fn.c_str());
-#endif 
+  if (debugOptions[DEBUG_AUDIO]) Serial.printf ("queueWAV(%i, %s)\n", channel, fn.c_str());
   
   }
 }
@@ -515,9 +491,7 @@ void queueWAV (int channel, String fn) {
 
 void playWAV (int channel, String fn) {
 
-#if DEBUG_AUDIO
-  Serial.printf("playWAV(%i, %s)\n", channel, fn.c_str());
-#endif
+  if (debugOptions[DEBUG_AUDIO]) Serial.printf("playWAV(%i, %s)\n", channel, fn.c_str());
 
   channels[channel]->play(fn.c_str());
   //while this delay is recommended, we are operating properly without it.
@@ -539,31 +513,33 @@ void playWAV (int channel, String fn) {
 bool animate(int *frame, int lastFrame, byte ani[], int numLEDS, CRGB leds[]) {
   if (*frame < lastFrame) {
 
-#if DEBUG_ANIMATION_RGB
+  if (debugOptions[DEBUG_ANIMATION_RGB]) {
   Serial.print("Animation Row:");
   Serial.print(*frame);
   Serial.print("-");  
   Serial.print(millis());
-#endif
+  }
      
     for (int col=0; col < numLEDS; col++) {
       int base = (*frame*numLEDS*3) + (col*3);
       int b = ani[base];
       int g = ani[base + 1 ];
       int r = ani[base + 2 ];
-#if DEBUG_ANIMATION_RGB
-      Serial.printf("{%i:%i:%i,%i,%i}", col, base, r, g, b);
-#endif  
 
-#if DEBUG_ANIMATION
-      Serial.printf("%s ", (r || g || b)?"*":" ");
-#endif  
+      if (debugOptions[DEBUG_ANIMATION_RGB]) {
+        Serial.printf("{%i:%i:%i,%i,%i}", col, base, r, g, b);
+      }
+  
+      if (debugOptions[DEBUG_ANIMATION]) {
+        Serial.printf("%s ", (r || g || b)?"*":" ");
+      }  
 
       leds[col] = CRGB(r,g,b);    
     }
-#if DEBUG_ANIMATION || DEBUG_ANIMATION_RGB 
-      Serial.println("");
-#endif 
+    
+    if (debugOptions[DEBUG_ANIMATION_RGB] || debugOptions[DEBUG_ANIMATION]) {
+        Serial.println("");
+    }
     (*frame)++;
     return true;     //we updated the LED array
   } 
@@ -621,14 +597,12 @@ void loadAnimationBMP (const char *fn, byte ani[], int aniHeight, int aniWidth) 
               ani[base+2] = R;
             }
             
- #if DEBUG_ANIMATION
-            if ( R || G || B ) Serial.print("*");
-              else Serial.print(" ");
- #endif
+            if (debugOptions[DEBUG_ANIMATION]) {
+              if ( R || G || B ) Serial.print("*");
+                else Serial.print(" ");
+            }
         }
- #if DEBUG_ANIMATION
-        Serial.print("\n");
- #endif
+        if (debugOptions[DEBUG_ANIMATION]) Serial.print("\n");
     }
 
     bmpImage.close();
@@ -692,9 +666,8 @@ void updateButtons() {
     for (int btn = 0; btn< NUM_BUTTONS; btn++) {
       buttons[btn].update();
       if (buttons[btn].fallingEdge()){
-#if DEBUG_INPUT
-        Serial.printf("buttonDown: %i \n", btn);
-#endif
+        if (debugOptions[DEBUG_INPUT]) Serial.printf("buttonDown: %i \n", btn);
+
         buttonDuration[btn] = millis();
         //moved the action to button release 
         //mapAction(SOURCE_BUTTON, btn, 0);
@@ -704,9 +677,9 @@ void updateButtons() {
       if (buttons[btn].risingEdge() && buttonDuration[btn]){
 
         unsigned long duration = millis() - buttonDuration[btn];
-#if DEBUG_INPUT
-        Serial.printf("buttonUp: %i; Duration = %i \n", btn, duration); 
-#endif
+
+        if (debugOptions[DEBUG_INPUT]) Serial.printf("buttonUp: %i; Duration = %i \n", btn, duration); 
+
         mapAction(SOURCE_BUTTON, btn, duration);
         }
         
@@ -720,9 +693,8 @@ void updateButtons() {
  */
 void OnPress(int key)
 {
-#if DEBUG_INPUT
-  Serial.printf("Pressed key: %i \n", key);
-#endif
+  if (debugOptions[DEBUG_INPUT]) Serial.printf("Pressed key: %i \n", key);
+
   //mapAction(SOURCE_KEY, key, 0);
   keyHeld = key;
   keyHeldDuration = millis();   
@@ -735,9 +707,7 @@ void OnPress(int key)
  */
 void OnRelease(int key)
 {
-#if DEBUG_INPUT
-  Serial.printf("Released key: %i \n", key);
-#endif
+  if (debugOptions[DEBUG_INPUT]) Serial.printf("Released key: %i \n", key);
 
   unsigned long duration = 0;
   
@@ -745,9 +715,8 @@ void OnRelease(int key)
     duration = millis() - keyHeldDuration;
   }
   
-#if DEBUG_INPUT
-  Serial.printf("KeyUp: %i; Duration = %i \n", key, duration); 
-#endif
+  if (debugOptions[DEBUG_INPUT]) Serial.printf("KeyUp: %i; Duration = %i \n", key, duration); 
+
   mapAction(SOURCE_KEY, key, duration);   
 }
 
@@ -765,3 +734,65 @@ void mapAction(int src, int key, int data) {
     } //end if
   } //end for
 }
+
+/*
+ * debugOptionsCheck() - this function checks the Serial input and
+ *                       changes debug options as well as emulates some 
+ *                       button presses
+ *                       
+ */
+void debugOptionsCheck() {
+  int incomingByte = 0;
+  
+  if (Serial.available() > 0) {
+      // read the incoming byte:
+      incomingByte = Serial.read();
+      int option;
+      
+      switch (incomingByte) {
+          case '0':                         //turn all options off
+            for (int o = 1; o<10; o++) {    //we dont use zero
+              debugOptions[o] = 0;
+            }
+            Serial.println ("All debug options turned OFF");
+            break;
+            
+          case '1' ... '9': 
+            option = incomingByte - '0';
+            debugOptions[option] = !debugOptions[option]; 
+            //Serial.printf("Debug option %d is now %s\n", option, debugOptions[option]?"ON":"OFF");
+            break;
+
+          case 'q': mapAction(SOURCE_BUTTON, 1, 0); break;
+          case 'w': mapAction(SOURCE_BUTTON, 2, 0); break;
+          case 'e': mapAction(SOURCE_BUTTON, 3, 0); break;
+          case 'r': mapAction(SOURCE_BUTTON, 4, 0); break;
+          }
+         
+         printDebugOptions();
+          
+      }
+       
+}
+
+/*
+ * printDebugOptions() - this function outputs a debug option list with
+ *                       with current status, and provides some input 
+ *                       instructions
+ *  
+ */
+void printDebugOptions() {
+  Serial.println("\nDebug Options Status");
+  Serial.println("Use serial input keys 1 through 9 to change debug options");
+  Serial.println("Use serial input keys QWER to emulate buttons 1 through 4");
+  
+  for (int o=1; o<10; o++) {    //we don't use zero
+    {
+      if (debugOptionsText[o]) //don't print undefined options
+        Serial.printf("   Option %d = %s %s\n", o, debugOptions[o]?"ON: ":"OFF:", debugOptionsText[o]);
+    }
+  }
+  Serial.println("\n");       //a little extra padding in the output
+}
+ 
+ 
