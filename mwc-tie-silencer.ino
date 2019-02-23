@@ -35,6 +35,16 @@ Bounce buttons[NUM_BUTTONS] = { {buttonPins[0], 250}, {buttonPins[1], 250}, {but
 unsigned long buttonDuration[NUM_BUTTONS];    //holds the last millis() for a falling edge
 #define BUTTON_HOLD_DURATION 2000
 
+
+    
+#define BUTTON_LIGHT_TORPEDO  38
+#define BUTTON_LIGHT_LASER    37
+#define BUTTON_LIGHT_SPEECH   36
+#define BUTTON_LIGHT_ENGINE   35
+
+uint8_t buttonLightPins[NUM_BUTTONS] = { BUTTON_LIGHT_TORPEDO, BUTTON_LIGHT_LASER,
+                                         BUTTON_LIGHT_SPEECH, BUTTON_LIGHT_ENGINE };
+
 int keyHeld = 0;
 unsigned long keyHeldDuration = 0;
 #define KEY_HOLD_DURATION 2000
@@ -94,10 +104,6 @@ AudioControlSGTL5000     sgtl5000_1;     //xy=106,55
 #define CHANNEL_SPEECH     2     
 #define CHANNEL_WEAPON     2
 
-#define PEAK_ENGINE        1     //Use these to peak analysis to an audio channel
-#define PEAK_SPEECH        2     
-
-
 #define LEVEL_CHANNEL0    .3    //change these for relative channel levels
 #define LEVEL_CHANNEL1    .3
 #define LEVEL_CHANNEL2    .8  
@@ -107,6 +113,8 @@ AudioControlSGTL5000     sgtl5000_1;     //xy=106,55
 //I use this syntax so that I can leave the declarations above which come from the Audio Design tool
 AudioPlaySdWav *channels[NUM_CHANNELS] = { &playSdWav1, &playSdWav2, &playSdWav3 };
 String playQueue[NUM_CHANNELS];
+
+
 
 AudioAnalyzePeak  *peakAnalyzers[NUM_CHANNELS] = { &peak1, &peak2, &peak3 };
 
@@ -186,6 +194,9 @@ unsigned long lastPlayStart = 0;
 #define ACTION_PLAY_WAV               10
 #define ACTION_PLAY_WAV_RND           11
 
+#define MAX_ACTION_ID                11 //change this if you add actions!
+unsigned long lastActionTime[MAX_ACTION_ID]; 
+
 
 /*
  * The ActionMap allows us to have multiple types of input events
@@ -215,7 +226,7 @@ void setup() {
   delay(100);
 
   Serial.println("Setup Started.");
-  printDebugOptions();
+  
 
   //setup audio system
   AudioMemory(128);
@@ -248,7 +259,6 @@ void setup() {
     }
   }
 
-
   //load laser animation BMP
   loadAnimationBMP("LASER.BMP", laserAnimation, LASER_ANIMATION_HEIGHT, LASER_ANIMATION_WIDTH);
   if (debugOptions[DEBUG_ANIMATION]) {
@@ -263,12 +273,17 @@ void setup() {
   //seed random function
   randomSeed(analogRead(0));
 
-  //setup buttons
+  //setup buttons & button light
   for (int btn = 0; btn< NUM_BUTTONS; btn++) {
     pinMode(buttonPins[btn], INPUT_PULLUP);
+    pinMode(buttonLightPins[btn], OUTPUT);
+    digitalWrite(buttonLightPins[btn], HIGH);
+    delay(500);
+    digitalWrite(buttonLightPins[btn], LOW);  
     buttonDuration[btn] = 0; 
     buttons[btn].update();
   }
+
 
   //Setup LEDS
   
@@ -292,7 +307,8 @@ void setup() {
   
   delay(1000);
   Serial.println("Setup Complete.");
-  
+  printDebugOptions();
+  playWAV(CHANNEL_SPEECH, "KYLO1.WAV");
 }
 
 void loop() {
@@ -342,9 +358,42 @@ void loop() {
       if (debugOptions[DEBUG_PEAK]) Serial.printf("Engine Peak: %f \n", peak);
       int peakbrt = map(peak,0,1,0,255);
       fill_solid(engineLEDS, ENGINE_NUM_LEDS, CRGB(peakbrt,0,0));
+      analogWrite(BUTTON_LIGHT_ENGINE, peakbrt);
     }
     else fill_solid(engineLEDS, ENGINE_NUM_LEDS, CRGB(0,0,0));
 
+    //if weapons sounds are playing, then peak the appropriate button
+    if (channels[CHANNEL_WEAPON]->isPlaying() ) {
+      if (peakAnalyzers[CHANNEL_WEAPON]->available()) {
+        float peak = peakAnalyzers[CHANNEL_WEAPON]->read();
+        if (debugOptions[DEBUG_PEAK]) Serial.printf("Weapon Peak: %f \n", peak);
+        int peakbrt = map(peak,0,1,0,255);
+        unsigned long k = lastActionTime[ACTION_KYLO];
+        unsigned long l = lastActionTime[ACTION_LASER];
+        unsigned long t = lastActionTime[ACTION_TORPEDO];
+
+        if ( k > l && k > t) {
+          //kylo was most recent
+          analogWrite(BUTTON_LIGHT_SPEECH, peakbrt);
+          analogWrite(BUTTON_LIGHT_LASER, LOW); 
+          analogWrite(BUTTON_LIGHT_TORPEDO, LOW);
+        }
+        else if ( l > k && l > t) {
+          analogWrite(BUTTON_LIGHT_LASER, peakbrt);
+          analogWrite(BUTTON_LIGHT_TORPEDO, LOW);   
+        }
+        else if ( t > k && t > l) {
+          analogWrite(BUTTON_LIGHT_TORPEDO, peakbrt);
+          analogWrite(BUTTON_LIGHT_LASER, LOW);
+        }
+      }   //end if peak available()
+    } //end if isPlaying
+    else {
+      analogWrite(BUTTON_LIGHT_LASER, LOW); 
+      analogWrite(BUTTON_LIGHT_TORPEDO, LOW); 
+      analogWrite(BUTTON_LIGHT_SPEECH, LOW);
+    }
+    
   bool rLaser = animate(&laserFrame, LASER_ANIMATION_HEIGHT, laserAnimation, LASER_NUM_LEDS, laserLEDS);
   bool rTorpedo = animate(&torpedoFrame, TORPEDO_ANIMATION_HEIGHT, torpedoAnimation, LASER_NUM_LEDS, laserLEDS);
   if (!rLaser && !rTorpedo) { 
@@ -358,6 +407,7 @@ void loop() {
 }
 
 void processAction (int action, int src, int key, int data) {
+  
   switch (action) {
    
       case ACTION_TORPEDO:            actionTorpedo(data); break;
@@ -374,6 +424,7 @@ void processAction (int action, int src, int key, int data) {
       case ACTION_BGM_TOGGLE:         actionBGMToggle(data); break;
    
   }
+  
 }
 
 void actionTorpedo(int holdDuration) {
@@ -730,7 +781,9 @@ void OnRelease(int key)
 void mapAction(int src, int key, int data) {
   for (int s = 0; s< ACTION_MAP_SIZE; s++) {
     if (ActionMap[s][0] == src && ActionMap[s][1] == key) {
-      processAction(ActionMap[s][2], src, key, data);     
+      int action = ActionMap[s][2];
+      lastActionTime[action] = millis();
+      processAction(action, src, key, data);     
     } //end if
   } //end for
 }
