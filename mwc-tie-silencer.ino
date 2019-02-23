@@ -27,6 +27,7 @@ uint8_t buttonPins[NUM_BUTTONS] = { 0, 1, 2, 3 };
 Bounce buttons[NUM_BUTTONS] = { {buttonPins[0], 250}, {buttonPins[1], 250}, {buttonPins[2], 1000},{buttonPins[3], 1000} };
 unsigned long buttonDuration[NUM_BUTTONS];    //holds the last millis() for a falling edge
 #define BUTTON_HOLD_DURATION 2000
+bool buttonStatus[NUM_BUTTONS];
 
 int keyHeld = 0;
 unsigned long keyHeldDuration = 0;
@@ -128,7 +129,7 @@ byte laserAnimation[LASER_ANIMATION_HEIGHT * LASER_ANIMATION_WIDTH * 3];
 #define TORPEDO_ANIMATION_WIDTH  16
 byte torpedoAnimation[TORPEDO_ANIMATION_HEIGHT * TORPEDO_ANIMATION_WIDTH * 3];
 
-#define ENGINE_NUM_LEDS 20 
+#define ENGINE_NUM_LEDS 145 
 #define ENGINE_DATA_PIN 33
 CRGB engineLEDS[ENGINE_NUM_LEDS]; 
 
@@ -167,14 +168,17 @@ unsigned long lastPlayStart = 0;
 
 #define SOURCE_KEY                    0
 #define SOURCE_BUTTON                 1
+#define SOURCE_BUTTON_HELD            2
 
 #define ACTION_DO_NOT_USE             0 //just putting this here as a reminder to not use it :)
 
 #define ACTION_TORPEDO               1
-#define ACTION_LASER                 2
-#define ACTION_KYLO                  3
-#define ACTION_ENGINE                4
-#define ACTION_BGM_TOGGLE            5 //BGM = BACKGROUND MUSIC
+#define ACTION_TORPEDO_CHARGE        2
+#define ACTION_LASER                 3
+#define ACTION_KYLO                  4
+#define ACTION_ENGINE                5
+#define ACTION_BGM_TOGGLE            6 //BGM = BACKGROUND MUSIC
+
 
 #define ACTION_PLAY_WAV               10
 #define ACTION_PLAY_WAV_RND           11
@@ -200,6 +204,8 @@ int ActionMap[][3] = {
   {SOURCE_BUTTON, 1, ACTION_LASER},              //green button
   {SOURCE_BUTTON, 2, ACTION_KYLO},               //white button
   {SOURCE_BUTTON, 3, ACTION_ENGINE},             //red button
+  {SOURCE_BUTTON_HELD, 0, ACTION_TORPEDO_CHARGE} //white button
+  
    
 }; //if you change this, don't forget to update the ACTION_MAP_SIZE
 
@@ -361,6 +367,12 @@ void processAction (int action, int src, int key, int data) {
   switch (action) {
    
       case ACTION_TORPEDO:            actionTorpedo(data); break;
+      case ACTION_TORPEDO_CHARGE:     if (data >= BUTTON_HOLD_DURATION) {
+                                        actionTorpedo(data);
+                                        buttonStatus[key]=0;
+                                        }
+                                      else actionTorpedoCharge(data); break;
+                                      
       case ACTION_LASER:              actionLaser(data);   break;
       case ACTION_KYLO:               
                                       if (data >= BUTTON_HOLD_DURATION) actionJarJar(data); 
@@ -391,6 +403,15 @@ void actionTorpedo(int holdDuration) {
   torpedoFrame=0;
 }
 
+void actionTorpedoCharge(int holdDuration) {
+#if DEBUG_ACTION
+  Serial.println("Charging Torpedo!");
+#endif
+  
+   //do something
+
+
+}
 void actionLaser(int holdDuration) {
 #if DEBUG_ACTION
   Serial.println("Fire the LAZORS!");
@@ -691,25 +712,39 @@ void printAnimation (byte ani[], int aniHeight, int aniWidth) {
 void updateButtons() {
     for (int btn = 0; btn< NUM_BUTTONS; btn++) {
       buttons[btn].update();
-      if (buttons[btn].fallingEdge()){
-#if DEBUG_INPUT
-        Serial.printf("buttonDown: %i \n", btn);
-#endif
-        buttonDuration[btn] = millis();
-        //moved the action to button release 
-        //mapAction(SOURCE_BUTTON, btn, 0);
-      }
+      unsigned long duration = millis() - buttonDuration[btn];
 
       //if buttonDuration is zero, ignore since this is a button read on startup
       if (buttons[btn].risingEdge() && buttonDuration[btn]){
-
+        buttonStatus[btn] = 0;
         unsigned long duration = millis() - buttonDuration[btn];
 #if DEBUG_INPUT
         Serial.printf("buttonUp: %i; Duration = %i \n", btn, duration); 
 #endif
         mapAction(SOURCE_BUTTON, btn, duration);
-        }
-        
+        } //end button released
+
+      //check to see if a button is being held but has not been released
+      if (buttonStatus[btn] == 1) {
+#if DEBUG_INPUT
+        Serial.printf("buttonHeld: %i; Duration = %i \n", btn, duration); 
+#endif
+        mapAction(SOURCE_BUTTON_HELD, btn, duration);
+      }
+
+      
+      if (buttons[btn].fallingEdge()){
+#if DEBUG_INPUT
+        Serial.printf("buttonDown: %i \n", btn);
+#endif
+        buttonStatus[btn] = 1;
+        buttonDuration[btn] = millis();
+        //moved the action to button release 
+        //mapAction(SOURCE_BUTTON, btn, 0);
+      } //end button pressed
+
+
+       
     }//end for
 }
 
