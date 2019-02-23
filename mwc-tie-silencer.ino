@@ -470,6 +470,9 @@ void actionJarJar (int holdDuration) {
 void actionEngine(int holdDuration) {
   if (debugOptions[DEBUG_ACTION]) Serial.println("There is no sound in space, but let's make some anyway!");
   
+  mixer1.gain(CHANNEL_ENGINE, LEVEL_CHANNEL1);
+  mixer2.gain(CHANNEL_ENGINE, LEVEL_CHANNEL1);
+  
   queueWAV(CHANNEL_ENGINE, "ENGINE2.WAV");
 
 }
