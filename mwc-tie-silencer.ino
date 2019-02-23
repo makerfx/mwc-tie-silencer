@@ -276,12 +276,25 @@ void setup() {
   //setup buttons & button light
   for (int btn = 0; btn< NUM_BUTTONS; btn++) {
     pinMode(buttonPins[btn], INPUT_PULLUP);
-    pinMode(buttonLightPins[btn], OUTPUT);
-    digitalWrite(buttonLightPins[btn], HIGH);
-    delay(500);
-    digitalWrite(buttonLightPins[btn], LOW);  
+    pinMode(buttonLightPins[btn], OUTPUT);  
     buttonDuration[btn] = 0; 
     buttons[btn].update();
+  }
+
+  //startup button light animation
+  int btnDelay = 50;
+  int absBtn = 0;
+  int numCycles = 10;
+  for (int cycle = 0; cycle < numCycles; cycle++) { 
+    for (int btn = 0; btn< NUM_BUTTONS; btn++) { 
+      btnDelay = btnDelay - absBtn;
+      if (btnDelay <0) btnDelay=0;
+      digitalWrite(buttonLightPins[btn], HIGH);
+      delay(btnDelay);  
+      digitalWrite(buttonLightPins[btn], LOW);
+      delay(btnDelay); 
+      absBtn++;
+    }
   }
 
 
@@ -308,7 +321,7 @@ void setup() {
   delay(1000);
   Serial.println("Setup Complete.");
   printDebugOptions();
-  playWAV(CHANNEL_SPEECH, "KYLO1.WAV");
+  actionKylo(0);
 }
 
 void loop() {
