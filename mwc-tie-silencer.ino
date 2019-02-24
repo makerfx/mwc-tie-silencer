@@ -912,6 +912,7 @@ void debugOptionsCheck() {
 void printDebugOptions() {
   Serial.println("\nDebug Options Status");
   Serial.println("Use serial input keys 1 through 9 to change debug options");
+  Serial.println("Use serial input keys 0 to turn off all debug options at once");
   Serial.println("Use serial input keys QWER to emulate buttons 1 through 4");
   
   for (int o=1; o<10; o++) {    //we don't use zero
