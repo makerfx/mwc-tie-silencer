@@ -891,10 +891,10 @@ void debugOptionsCheck() {
             //Serial.printf("Debug option %d is now %s\n", option, debugOptions[option]?"ON":"OFF");
             break;
 
-          case 'q': mapAction(SOURCE_BUTTON, 1, 0); break;
-          case 'w': mapAction(SOURCE_BUTTON, 2, 0); break;
-          case 'e': mapAction(SOURCE_BUTTON, 3, 0); break;
-          case 'r': mapAction(SOURCE_BUTTON, 4, 0); break;
+          case 'q': mapAction(SOURCE_BUTTON, 0, 0); break;
+          case 'w': mapAction(SOURCE_BUTTON, 1, 0); break;
+          case 'e': mapAction(SOURCE_BUTTON, 2, 0); break;
+          case 'r': mapAction(SOURCE_BUTTON, 3, 0); break;
           }
          
          printDebugOptions();
@@ -913,7 +913,7 @@ void printDebugOptions() {
   Serial.println("\nDebug Options Status");
   Serial.println("Use serial input keys 1 through 9 to change debug options");
   Serial.println("Use serial input keys 0 to turn off all debug options at once");
-  Serial.println("Use serial input keys QWER to emulate buttons 1 through 4");
+  Serial.println("Use serial input keys QWER to emulate buttons 0 through 3");
   
   for (int o=1; o<10; o++) {    //we don't use zero
     {
