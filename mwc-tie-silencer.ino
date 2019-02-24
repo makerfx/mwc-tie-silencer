@@ -10,7 +10,7 @@
 bool debugOptions[10] = {0, 0, 0, 1, 0, 0, 0, 0, 0, 0};   //change default here, helpful for startup debugging
 
                                                         
-char* debugOptionsText[10] =  {"", "Input","Audio", "Action", "Peak Audio",
+const char *debugOptionsText[10] =  {"", "Input","Audio", "Action", "Peak Audio",
                                 "Animation","Animation RGB Dump"};
                                 
 #define DEBUG_INPUT               1  //input functions 
@@ -27,15 +27,13 @@ char* debugOptionsText[10] =  {"", "Input","Audio", "Action", "Peak Audio",
  * Hardware Buttons
  */
  
-#include <Bounce.h>
+#include "NButton.h"
 
 #define NUM_BUTTONS 4
 uint8_t buttonPins[NUM_BUTTONS] = { 0, 1, 2, 3 };
-Bounce buttons[NUM_BUTTONS] = { {buttonPins[0], 250}, {buttonPins[1], 250}, {buttonPins[2], 1000},{buttonPins[3], 1000} };
-unsigned long buttonDuration[NUM_BUTTONS];    //holds the last millis() for a falling edge
-#define BUTTON_HOLD_DURATION 2000
-
-
+NButton buttons[NUM_BUTTONS] = { {0, buttonPins[0], true, true}, {1, buttonPins[1], true, true}, 
+                                 {2, buttonPins[2], true, true}, {3, buttonPins[3], true, true} };
+int buttonDebounce[NUM_BUTTONS] = {250, 100, 1000, 1000};
     
 #define BUTTON_LIGHT_TORPEDO  38
 #define BUTTON_LIGHT_LASER    37
@@ -47,7 +45,7 @@ uint8_t buttonLightPins[NUM_BUTTONS] = { BUTTON_LIGHT_TORPEDO, BUTTON_LIGHT_LASE
 
 int keyHeld = 0;
 unsigned long keyHeldDuration = 0;
-#define KEY_HOLD_DURATION 2000
+#define KEY_HOLD_DURATION 1000
 
 
 /*
@@ -172,9 +170,6 @@ USBHost myusb;
 USBHub hub1(myusb);
 KeyboardController keyboard1(myusb);
 
-// this is for wav file playback to reduce locking
-unsigned long lastPlayStart = 0;
-
 // Use these with the Teensy 3.5 & 3.6 SD card
 #define SDCARD_CS_PIN    BUILTIN_SDCARD
 #define SDCARD_MOSI_PIN  11  // not actually used
@@ -182,6 +177,10 @@ unsigned long lastPlayStart = 0;
 
 #define SOURCE_KEY                    0
 #define SOURCE_BUTTON                 1
+#define SOURCE_BTN_DBLCLICK           2
+#define SOURCE_BTN_LONGPRESS_START    3
+#define SOURCE_BTN_LONGPRESS_DURING   4
+#define SOURCE_BTN_LONGPRESS_STOP     5
 
 #define ACTION_DO_NOT_USE             0 //just putting this here as a reminder to not use it :)
 
@@ -189,12 +188,19 @@ unsigned long lastPlayStart = 0;
 #define ACTION_LASER                 2
 #define ACTION_KYLO                  3
 #define ACTION_ENGINE                4
-#define ACTION_BGM_TOGGLE            5 //BGM = BACKGROUND MUSIC
+#define ACTION_BGM_TOGGLE            5          //BGM = BACKGROUND MUSIC
+#define ACTION_ENGINE_TOGGLE         6
+#define ACTION_TORPEDO_CHARGE_START  7
+#define ACTION_TORPEDO_CHARGE_DURING 8
+#define ACTION_TORPEDO_CHARGE_STOP   9
+#define ACTION_JARJAR                10
+#define ACTION_FLASH_BUTTON          11
 
-#define ACTION_PLAY_WAV               10
-#define ACTION_PLAY_WAV_RND           11
 
-#define MAX_ACTION_ID                11 //change this if you add actions!
+#define ACTION_PLAY_WAV               20
+#define ACTION_PLAY_WAV_RND           21
+
+#define MAX_ACTION_ID                21 //change this if you add actions!
 unsigned long lastActionTime[MAX_ACTION_ID]; 
 
 
@@ -205,7 +211,7 @@ unsigned long lastActionTime[MAX_ACTION_ID];
  * 
  */
 
-#define ACTION_MAP_SIZE 9
+#define ACTION_MAP_SIZE 22
 
 int ActionMap[][3] = {
   //src, key, action
@@ -214,10 +220,28 @@ int ActionMap[][3] = {
   {SOURCE_KEY,  27, ACTION_KYLO},               //remote up
   {SOURCE_KEY,  98, ACTION_ENGINE},             //remote down
   {SOURCE_KEY, 198, ACTION_BGM_TOGGLE},         //remote play
+  
   {SOURCE_BUTTON, 0, ACTION_TORPEDO},            //blue button
+  {SOURCE_BTN_DBLCLICK, 0, ACTION_TORPEDO}, 
+  {SOURCE_BTN_LONGPRESS_START, 0, ACTION_TORPEDO_CHARGE_START},            
+  {SOURCE_BTN_LONGPRESS_DURING, 0, ACTION_TORPEDO_CHARGE_DURING},            
+  {SOURCE_BTN_LONGPRESS_STOP, 0, ACTION_TORPEDO_CHARGE_STOP},            
+  
   {SOURCE_BUTTON, 1, ACTION_LASER},              //green button
+  {SOURCE_BTN_DBLCLICK, 1, ACTION_LASER},              
+  {SOURCE_BTN_LONGPRESS_DURING, 1, ACTION_FLASH_BUTTON},            
+  {SOURCE_BTN_LONGPRESS_STOP, 1, ACTION_BGM_TOGGLE},
+  
   {SOURCE_BUTTON, 2, ACTION_KYLO},               //white button
+  {SOURCE_BTN_DBLCLICK, 2, ACTION_KYLO},               
+  {SOURCE_BTN_LONGPRESS_DURING, 2, ACTION_FLASH_BUTTON},            
+  {SOURCE_BTN_LONGPRESS_STOP, 2, ACTION_JARJAR},            
+  
   {SOURCE_BUTTON, 3, ACTION_ENGINE},             //red button
+  {SOURCE_BTN_DBLCLICK, 3, ACTION_ENGINE},                        
+  {SOURCE_BTN_LONGPRESS_DURING, 3, ACTION_FLASH_BUTTON}, 
+  {SOURCE_BTN_LONGPRESS_STOP, 3, ACTION_ENGINE_TOGGLE},            
+  
    
 }; //if you change this, don't forget to update the ACTION_MAP_SIZE
 
@@ -231,7 +255,7 @@ void setup() {
   //setup audio system
   AudioMemory(128);
   sgtl5000_1.enable();
-  sgtl5000_1.volume(0.4);
+  sgtl5000_1.volume(0.8);
 
   //set relative volumes by channel
   mixer1.gain(0, LEVEL_CHANNEL0);
@@ -275,10 +299,14 @@ void setup() {
 
   //setup buttons & button light
   for (int btn = 0; btn< NUM_BUTTONS; btn++) {
-    pinMode(buttonPins[btn], INPUT_PULLUP);
+    //pinMode(buttonPins[btn], INPUT_PULLUP);
     pinMode(buttonLightPins[btn], OUTPUT);  
-    buttonDuration[btn] = 0; 
-    buttons[btn].update();
+ 
+    buttons[btn].attachClick(buttonClick);
+    buttons[btn].attachDoubleClick(buttonDoubleClick);
+    buttons[btn].attachLongPressStart(buttonLongPressStart);
+    buttons[btn].attachLongPressStop(buttonLongPressStop);
+    buttons[btn].attachDuringLongPress(buttonLongPress);
   }
 
   //startup button light animation
@@ -321,12 +349,15 @@ void setup() {
   delay(1000);
   Serial.println("Setup Complete.");
   printDebugOptions();
-  actionKylo(0);
+  actionKylo();
 }
 
 void loop() {
-
-  updateButtons();
+  //update all buttons
+  for (int btn = 0; btn< NUM_BUTTONS; btn++) {
+    buttons[btn].tick();
+   }
+    
   myusb.Task();
 
    if (bgmMetro.check() == 1) { // check if the metro has passed its interval 
@@ -365,15 +396,16 @@ void loop() {
 
   if (animationMetro.check() == 1) { // check if the metro has passed its interval
     //engine animation
-    
+
+  
     if (peakAnalyzers[CHANNEL_ENGINE]->available()) {
       float peak = peakAnalyzers[CHANNEL_ENGINE]->read();
       if (debugOptions[DEBUG_PEAK]) Serial.printf("Engine Peak: %f \n", peak);
       int peakbrt = map(peak,0,1,0,255);
       fill_solid(engineLEDS, ENGINE_NUM_LEDS, CRGB(peakbrt,0,0));
-      analogWrite(BUTTON_LIGHT_ENGINE, peakbrt);
+      analogWrite(BUTTON_LIGHT_ENGINE, peakbrt);     
     }
-    else fill_solid(engineLEDS, ENGINE_NUM_LEDS, CRGB(0,0,0));
+    else fill_solid(engineLEDS, ENGINE_NUM_LEDS, CRGB(255,0,0));
 
     //if weapons sounds are playing, then peak the appropriate button
     if (channels[CHANNEL_WEAPON]->isPlaying() ) {
@@ -381,9 +413,12 @@ void loop() {
         float peak = peakAnalyzers[CHANNEL_WEAPON]->read();
         if (debugOptions[DEBUG_PEAK]) Serial.printf("Weapon Peak: %f \n", peak);
         int peakbrt = map(peak,0,1,0,255);
-        unsigned long k = lastActionTime[ACTION_KYLO];
+        unsigned long k = max(lastActionTime[ACTION_KYLO], lastActionTime[ACTION_JARJAR]);
         unsigned long l = lastActionTime[ACTION_LASER];
-        unsigned long t = lastActionTime[ACTION_TORPEDO];
+        unsigned long t = max(lastActionTime[ACTION_TORPEDO], lastActionTime[ACTION_TORPEDO_CHARGE_START]);
+                      t = max(t, lastActionTime[ACTION_TORPEDO_CHARGE_DURING]);
+                      t = max(t, lastActionTime[ACTION_TORPEDO_CHARGE_STOP]);
+                      
 
         if ( k > l && k > t) {
           //kylo was most recent
@@ -423,26 +458,37 @@ void processAction (int action, int src, int key, int data) {
   
   switch (action) {
    
-      case ACTION_TORPEDO:            actionTorpedo(data); break;
-      case ACTION_LASER:              if (data >= BUTTON_HOLD_DURATION) actionBGMToggle(data);
-                                      else actionLaser(data);   
-                                      break;
-                                                                         
-      case ACTION_KYLO:               if (data >= BUTTON_HOLD_DURATION) actionJarJar(data); 
-                                      else actionKylo(data);
-                                      break;
-                                      
-      case ACTION_ENGINE:             if (data >= BUTTON_HOLD_DURATION) actionEngineToggle(data);  
-                                      else actionEngine(data);
-                                      break;
-                                      
-      case ACTION_BGM_TOGGLE:         actionBGMToggle(data); break;
+      case ACTION_TORPEDO:                actionTorpedo();          break;
+      case ACTION_LASER:                  actionLaser();            break;                                                                         
+      case ACTION_KYLO:                   actionKylo();             break;                                  
+      case ACTION_JARJAR:                 actionJarJar();           break;      
+      case ACTION_ENGINE:                 actionEngine();           break;
+      case ACTION_ENGINE_TOGGLE:          actionEngineToggle();     break;
+      case ACTION_BGM_TOGGLE:             actionBGMToggle();        break;
+      case ACTION_TORPEDO_CHARGE_START:   actionTorpedoCharge(0);   break;
+      case ACTION_TORPEDO_CHARGE_DURING:  actionTorpedoCharge(1);   break;  
+      case ACTION_TORPEDO_CHARGE_STOP:    actionTorpedoCharge(2);   break; 
+      case ACTION_FLASH_BUTTON:           actionFlashButton(key);   break; 
    
   }
   
 }
 
-void actionTorpedo(int holdDuration) {
+void actionFlashButton(int btn) {
+  
+  //bool state = digitalRead(buttonLightPins[btn]);
+  //if (debugOptions[DEBUG_ACTION]) Serial.printf("Flash Button: %d, \n", btn);
+  if (millis() % 10 == 0){
+    //state = !state;
+    digitalWrite(buttonLightPins[btn], HIGH);
+  }
+  else if (millis() % 100 == 0){
+    //state = !state;
+    digitalWrite(buttonLightPins[btn], LOW);
+  }
+}
+
+void actionTorpedo() {
   if (debugOptions[DEBUG_ACTION]) Serial.println("Torpedo away!");
 
   //play random TORPEDO#.WAV
@@ -455,7 +501,17 @@ void actionTorpedo(int holdDuration) {
   torpedoFrame=0;
 }
 
-void actionLaser(int holdDuration) {
+void actionTorpedoCharge(int state) {
+ if (debugOptions[DEBUG_ACTION]) {
+  Serial.printf("Torpedo charge: %d\n", state); 
+ }
+ if (state == 0) queueWAV( CHANNEL_WEAPON, "TORPEDO0.WAV");
+ //if (state == 1) actionFlashButton(0);
+ if (state == 2) actionTorpedo();
+ 
+}
+
+void actionLaser() {
   if (debugOptions[DEBUG_ACTION]) Serial.println("Fire the LAZORS!");
   //laser sound
   //laser LED animation
@@ -468,7 +524,7 @@ void actionLaser(int holdDuration) {
   laserFrame=0; 
 }
 
-void actionKylo(int holdDuration) {
+void actionKylo() {
   if (debugOptions[DEBUG_ACTION]) Serial.println("Kylo was here!");
 
     //play random KYLO#.WAV
@@ -477,14 +533,16 @@ void actionKylo(int holdDuration) {
     queueWAV( CHANNEL_SPEECH, fn);
 }
 
-void actionJarJar (int holdDuration) {
+void actionJarJar () {
   if (debugOptions[DEBUG_ACTION]) Serial.println("EXQUEEEZE ME!");
   queueWAV( CHANNEL_SPEECH, "JARJAR.WAV");
 }
 
-void actionEngine(int holdDuration) {
+void actionEngine() {
   if (debugOptions[DEBUG_ACTION]) Serial.println("There is no sound in space, but let's make some anyway!");
-  
+  //turn off the digital write from flashing the LED
+  digitalWrite(BUTTON_LIGHT_ENGINE, 0);
+   
   mixer1.gain(CHANNEL_ENGINE, LEVEL_CHANNEL1);
   mixer2.gain(CHANNEL_ENGINE, LEVEL_CHANNEL1);
   
@@ -499,7 +557,7 @@ void actionEngine(int holdDuration) {
  * so we will let that metro start the sound once we change the status
  * 
  */
-void actionEngineToggle (int holdDuration) {
+void actionEngineToggle () {
     engineStatus = !engineStatus;
 
   if (debugOptions[DEBUG_ACTION]) Serial.printf("Background Engine status = %s\n", engineStatus?"HIGH":"LOW");
@@ -512,6 +570,9 @@ void actionEngineToggle (int holdDuration) {
       mixer1.gain(CHANNEL_ENGINE, .1);
       mixer2.gain(CHANNEL_ENGINE, .1);
   }
+
+  //turn off the digital write from flashing the LED
+  digitalWrite(BUTTON_LIGHT_ENGINE, 0);
 }
 
 
@@ -522,7 +583,7 @@ void actionEngineToggle (int holdDuration) {
  * so we will let that metro start the music once we change the status
  * 
  */
-void actionBGMToggle(int holdDuration) {
+void actionBGMToggle() {
   bgmStatus = !bgmStatus;
   if (debugOptions[DEBUG_ACTION]) Serial.printf("Background music status = %s\n", bgmStatus?"ON":"OFF");
   if (!bgmStatus) channels[CHANNEL_MUSIC]->stop(); 
@@ -726,34 +787,30 @@ void printAnimation (byte ani[], int aniHeight, int aniWidth) {
 }
 
 /*
- * Input
- * updateButtons() - This function reads each of the buttons 
- *                   and calls mapAction with the button info
- *                   
+ * NButtons callback functions
+ * 
  */
-void updateButtons() {
-    for (int btn = 0; btn< NUM_BUTTONS; btn++) {
-      buttons[btn].update();
-      if (buttons[btn].fallingEdge()){
-        if (debugOptions[DEBUG_INPUT]) Serial.printf("buttonDown: %i \n", btn);
-
-        buttonDuration[btn] = millis();
-        //moved the action to button release 
-        //mapAction(SOURCE_BUTTON, btn, 0);
-      }
-
-      //if buttonDuration is zero, ignore since this is a button read on startup
-      if (buttons[btn].risingEdge() && buttonDuration[btn]){
-
-        unsigned long duration = millis() - buttonDuration[btn];
-
-        if (debugOptions[DEBUG_INPUT]) Serial.printf("buttonUp: %i; Duration = %i \n", btn, duration); 
-
-        mapAction(SOURCE_BUTTON, btn, duration);
-        }
-        
-    }//end for
+void buttonClick(int id) {
+  if (debugOptions[DEBUG_INPUT]) Serial.printf("buttonClick: %d\n", id);
+  mapAction(SOURCE_BUTTON, id, 0);
 }
+void buttonDoubleClick(int id) {
+  if (debugOptions[DEBUG_INPUT]) Serial.printf("buttonDoubleClick: %d\n", id);
+  mapAction(SOURCE_BTN_DBLCLICK, id, 0);
+}
+void buttonLongPressStart(int id) {
+  if (debugOptions[DEBUG_INPUT]) Serial.printf("buttonLongPressStart: %d\n", id);
+  mapAction(SOURCE_BTN_LONGPRESS_START, id, 0);
+}
+void buttonLongPressStop(int id) {
+  if (debugOptions[DEBUG_INPUT]) Serial.printf("buttonLongPressStop: %d\n", id);
+  mapAction(SOURCE_BTN_LONGPRESS_STOP, id, 0);
+}
+void buttonLongPress(int id) {
+  if (debugOptions[DEBUG_INPUT]) Serial.printf("buttonLongPressDuring: %d\n", id);
+  mapAction(SOURCE_BTN_LONGPRESS_DURING, id, 0);
+}    
+ 
 
 /*
  * Input
