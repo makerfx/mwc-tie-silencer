@@ -1,5 +1,17 @@
-This is the repo for the Magic Wheelchair Tie Silencer build;
+This is the repo for the Magic Wheelchair Kylo Ren Tie Silencer build for Stryder
 
-Ian W - Let's get more info here :)
+Interactive Elements built by Ian Whitehouse, prototyping and code by Ian Cole.
 
+Interactive elements include:
 
+4 illuminated arcade buttons that activate light & sound
+  - Photo Torpedo
+  - Laser Cannon (turns off background music if you hold the button)
+  - Kylo Ren speech (and an easter egg if you hold the button!)
+  - Engine Boost (decreases background engine sound level if you hold the button)
+  
+Sound files and animation files are stored on the microsd card.
+  
+Weapons LEDs - 20 addressable LEDs per side, in lightsaber tubing. Used for Laser & Photon Torpedo animations
+
+Main Engines - 290 addressable LEDs, animated by peak analysis on the engine audio channel
