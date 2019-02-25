@@ -1,0 +1,26 @@
+Main Controller
+- Teensy 3.6 ($30): https://www.pjrc.com/store/teensy36.html (also available on amazon)
+- Teensy Audio board ($14): https://www.pjrc.com/store/teensy3_audio.html
+- Breadboard Prototyping PCB (QTY 3, $12 for 6): https://www.amazon.com/gp/product/B07DM3H7W2
+- Header pins for protoboards ($13 kit): https://smile.amazon.com/gp/product/B07CWSXY7P/
+- NeoPXL8 Friend breakout board ($6): https://www.adafruit.com/product/3975  
+- 12v->5v Voltage Regulator with screw terminals ($10): https://smile.amazon.com/EPBOWPT-Converter-Regulator-Supply-Transformer/dp/B01M03288J/
+- Ground Loop isolator (for audio input) ($8): https://smile.amazon.com/gp/product/B01JUOWB2Q/
+- Boss Audio Amp & Speakers ($58): https://www.amazon.com/BOSS-Audio-MCBK420B-Weatherproof-Applications/dp/B00T3QBL3M/
+    (Note: We would likely not select this again as it has open bluetooth)
+- BlackWeb USB Presentation Remote ($22): https://www.walmart.com/ip/BlackWeb-2-4GHz-Wireless-Presenter-82-ft-Range/720596584
+- USB Host Cable for Teensy ($8 for 2): https://www.amazon.com/gp/product/B06Y5M6JTV
+- Main power switch: (Ian W - what did you use?)
+- LED extension cable - 18 gauge 4 conductor: https://smile.amazon.com/gp/product/B0154H7BLE
+- Arcade Buttons 60MM Illuminated: https://smile.amazon.com/gp/product/B01M7PNCO9/
+- XT60 Battery connectors (Ian W - what did you use?)
+- Main Battery cable (Ian W - what did you use?)
+
+Possible Future Use
+- MOSFET Driver module for switching button lamps ($9): https://smile.amazon.com/gp/product/B06XHH1TQM/
+
+Misc items needed
+- Crimp connectors for power wiring + Crimper
+- Heat Shrink tubing
+- Ian W: Other items?
+
