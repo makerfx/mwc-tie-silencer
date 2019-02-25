@@ -12,6 +12,14 @@ Interactive elements include:
   
 Sound files and animation files are stored on the microsd card.
   
-Weapons LEDs - 20 addressable LEDs per side, in lightsaber tubing. Used for Laser & Photon Torpedo animations
+Weapons LEDs
+  20 addressable LEDs per side, in lightsaber tubing. 
+  Used for Laser & Photon Torpedo animations which are stored on the SD card as BMP files.
+    Each line of the BMP files is one frame of LED animation
+    BMP files are stored in the repo
+  Note that 20 LEDs were used per side and shared a data pin.
 
-Main Engines - 290 addressable LEDs, animated by peak analysis on the engine audio channel
+Main Engines
+  290 addressable LEDs
+  Animated by peak analysis on the engine audio channel
+  Note that 145 LEDs were used per side and shared a data pin
