@@ -170,6 +170,7 @@ bool engineStatus = 1;        //0 = Engine off; 1 = Engine on
 
 USBHost myusb;
 USBHub hub1(myusb);
+USBHIDParser hid1(myusb);
 KeyboardController keyboard1(myusb);
 
 // this is for wav file playback to reduce locking
@@ -317,6 +318,8 @@ void setup() {
   myusb.begin();
   keyboard1.attachPress(OnPress);
   keyboard1.attachRelease(OnRelease);
+  keyboard1.attachExtrasPress(OnHIDExtrasPress);
+  keyboard1.attachExtrasRelease(OnHIDExtrasRelease);
   
   delay(1000);
   Serial.println("Setup Complete.");
@@ -788,6 +791,27 @@ void OnRelease(int key)
 
   mapAction(SOURCE_KEY, key, duration);   
 }
+
+/*
+ * Input
+ * OnHIDExtrasPress() - this function is called by the USB Host HID event when a MULTIMEDIA key is pressed
+ * 
+ */
+void OnHIDExtrasPress(uint32_t top, uint16_t key) 
+{
+   OnPress(key);
+}
+
+/*
+ * Input
+ * OnHIDExtrasReleased() - this function is called by the USB Host HID event when a MULTIMEDIA key is released
+ * 
+ */
+void OnHIDExtrasRelease(uint32_t top, uint16_t key) 
+{
+  OnRelease(key);
+}
+
 
 /* 
  *  Action
